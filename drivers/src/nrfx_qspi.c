@@ -250,6 +250,41 @@ static void qspi_pins_deconfigure(void)
     }
 }
 
+static bool qspi_configure(nrfx_qspi_config_t const * p_config)
+{
+    if (!qspi_pins_configure(p_config))
+    {
+        return false;
+    }
+
+    nrf_qspi_xip_offset_set(NRF_QSPI, p_config->xip_offset);
+
+    nrf_qspi_ifconfig0_set(NRF_QSPI, &p_config->prot_if);
+#if NRFX_CHECK(USE_WORKAROUND_FOR_ANOMALY_121)
+    uint32_t regval = nrf_qspi_ifconfig0_raw_get(NRF_QSPI);
+    if (p_config->phy_if.sck_freq == NRF_QSPI_FREQ_DIV1)
+    {
+        regval |= ((1 << 16) | (1 << 17));
+    }
+    else
+    {
+        regval &= ~(1 << 17);
+        regval |=  (1 << 16);
+    }
+    nrf_qspi_ifconfig0_raw_set(NRF_QSPI, regval);
+    nrf_qspi_iftiming_set(NRF_QSPI, 6);
+#endif
+    nrf_qspi_ifconfig1_set(NRF_QSPI, &p_config->phy_if);
+
+    if (m_cb.handler)
+    {
+        NRFX_IRQ_PRIORITY_SET(QSPI_IRQn, p_config->irq_priority);
+        NRFX_IRQ_ENABLE(QSPI_IRQn);
+    }
+
+    return true;
+}
+
 static nrfx_err_t qspi_ready_wait(void)
 {
     bool result;
@@ -275,42 +310,20 @@ nrfx_err_t nrfx_qspi_init(nrfx_qspi_config_t const * p_config,
         return NRFX_ERROR_INVALID_STATE;
     }
 
-    if (!qspi_pins_configure(p_config))
-    {
-        return NRFX_ERROR_INVALID_PARAM;
-    }
-
-    nrf_qspi_xip_offset_set(NRF_QSPI, p_config->xip_offset);
-
-    nrf_qspi_ifconfig0_set(NRF_QSPI, &p_config->prot_if);
-#if NRFX_CHECK(USE_WORKAROUND_FOR_ANOMALY_121)
-    uint32_t regval = nrf_qspi_ifconfig0_raw_get(NRF_QSPI);
-    if (p_config->phy_if.sck_freq == NRF_QSPI_FREQ_DIV1)
-    {
-        regval |= ((1 << 16) | (1 << 17));
-    }
-    else
-    {
-        regval &= ~(1 << 17);
-        regval |=  (1 << 16);
-    }
-    nrf_qspi_ifconfig0_raw_set(NRF_QSPI, regval);
-    nrf_qspi_iftiming_set(NRF_QSPI, 6);
-#endif
-    nrf_qspi_ifconfig1_set(NRF_QSPI, &p_config->phy_if);
-
     m_cb.handler = handler;
     m_cb.p_context = p_context;
-    m_cb.skip_gpio_cfg = p_config->skip_gpio_cfg;
 
     /* QSPI interrupt is disabled because the device should be enabled in polling mode
       (wait for activate task event ready) */
     nrf_qspi_int_disable(NRF_QSPI, NRF_QSPI_INT_READY_MASK);
 
-    if (handler)
+    if (p_config)
     {
-        NRFX_IRQ_PRIORITY_SET(QSPI_IRQn, p_config->irq_priority);
-        NRFX_IRQ_ENABLE(QSPI_IRQn);
+        m_cb.skip_gpio_cfg = p_config->skip_gpio_cfg;
+        if (!qspi_configure(p_config))
+        {
+            return NRFX_ERROR_INVALID_PARAM;
+        }
     }
 
     m_cb.p_buffer_primary = NULL;
@@ -325,6 +338,27 @@ nrfx_err_t nrfx_qspi_init(nrfx_qspi_config_t const * p_config,
     // Waiting for the peripheral to activate
 
     return qspi_ready_wait();
+}
+
+nrfx_err_t nrfx_qspi_reconfigure(nrfx_qspi_config_t const * p_config)
+{
+    NRFX_ASSERT(p_config);
+    nrfx_err_t err_code = NRFX_SUCCESS;
+    if (m_cb.state == NRFX_QSPI_STATE_UNINITIALIZED)
+    {
+        return NRFX_ERROR_INVALID_STATE;
+    }
+    if (m_cb.state != NRFX_QSPI_STATE_IDLE)
+    {
+        return NRFX_ERROR_BUSY;
+    }
+    nrf_qspi_disable(NRF_QSPI);
+    if (!qspi_configure(p_config))
+    {
+        err_code = NRFX_ERROR_INVALID_PARAM;
+    }
+    nrf_qspi_enable(NRF_QSPI);
+    return err_code;
 }
 
 nrfx_err_t nrfx_qspi_cinstr_xfer(nrf_qspi_cinstr_conf_t const * p_config,
@@ -480,16 +514,9 @@ nrfx_err_t nrfx_qspi_mem_busy_check(void)
     nrfx_err_t ret_code;
     uint8_t status_value = 0;
 
-    nrf_qspi_cinstr_conf_t const config = {
-        .opcode = QSPI_STD_CMD_RDSR,
-        .length = NRF_QSPI_CINSTR_LEN_2B,
-        // Keep the IO3 line high during the transfer. Otherwise, its low level
-        // can be interpreted by the memory chip as an active HOLD#/RESET#
-        // signal and the status register value may not be output.
-        // Such configuration is also consistent with what the QSPI peripheral
-        // uses when it sends the Read Status Register command itself.
-        .io3_level = true,
-    };
+    nrf_qspi_cinstr_conf_t const config =
+        NRFX_QSPI_DEFAULT_CINSTR(QSPI_STD_CMD_RDSR,
+                                 NRF_QSPI_CINSTR_LEN_2B);
     ret_code = nrfx_qspi_cinstr_xfer(&config, &status_value, &status_value);
 
     if (ret_code != NRFX_SUCCESS)

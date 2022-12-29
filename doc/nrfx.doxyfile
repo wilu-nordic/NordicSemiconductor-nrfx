@@ -40,7 +40,7 @@ PROJECT_NAME           = "nrfx"
 
 ### EDIT THIS ###
 
-PROJECT_NUMBER         = "2.10"
+PROJECT_NUMBER         = "3.0-beta-milestone-2"
 
 # Using the PROJECT_BRIEF tag one can provide an optional one line description
 # for a project that appears at the top of each page and should give viewer a
@@ -237,7 +237,8 @@ TAB_SIZE               = 4
 
 ALIASES                = "tagGreenTick=\htmlonly<CENTER><font color=\"green\">✔</font></CENTER>\endhtmlonly \xmlonly<verbatim>embed:rst:inline :green:`✔`</verbatim>\endxmlonly" \
                          "tagRedCross=\htmlonly<CENTER><font color=\"red\">✖</font></CENTER>\endhtmlonly \xmlonly<verbatim>embed:rst:inline :red:`✖`</verbatim>\endxmlonly" \
-                         "nRF5340pinAssignmentsURL=\"https://infocenter.nordicsemi.com/index.jsp?topic=%2Fps_nrf5340%2Fchapters%2Fpin.html\""
+                         "nRF5340pinAssignmentsURL=\"https://infocenter.nordicsemi.com/index.jsp?topic=%2Fps_nrf5340%2Fchapters%2Fpin.html\"" \
+                         "refhal{1}=\sa \1 \copydoc \1"
 
 # This tag can be used to specify a number of word-keyword mappings (TCL only).
 # A mapping has the form "name=value". For example adding "class=itcl::class"
@@ -794,6 +795,7 @@ WARN_LOGFILE           = warnings_nrfx.txt
 INPUT                  = ../helpers \
                          ../drivers \
                          ../hal \
+                         ../haly \
                          ../soc \
                          ../templates \
                          ../CHANGELOG.md \
@@ -1520,7 +1522,7 @@ FORMULA_TRANSPARENT    = YES
 # The default value is: NO.
 # This tag requires that the tag GENERATE_HTML is set to YES.
 
-USE_MATHJAX            = YES
+USE_MATHJAX            = NO
 
 # When MathJax is enabled you can set the default output format to be used for
 # the MathJax output. See the MathJax site (see:
@@ -2077,7 +2079,15 @@ INCLUDE_FILE_PATTERNS  =
 # This tag requires that the tag ENABLE_PREPROCESSING is set to YES.
 
 PREDEFINED             = SUPPRESS_INLINE_IMPLEMENTATION \
-                         __NRFX_DOXYGEN__
+                         __NRFX_DOXYGEN__ \
+                         CONFIG_PURGE_ENABLED=1 \
+                         CONFIG_DISASSOCIATE_ENABLED=1 \
+                         CONFIG_GTS_ENABLED=1 \
+                         CONFIG_ORPHAN_ENABLED=1 \
+                         CONFIG_RXE_ENABLED=1 \
+                         CONFIG_START_ENABLED=1 \
+                         CONFIG_SYNC_ENABLED=1 \
+                         CONFIG_PANID_CONFLICT_ENABLED=1
 
 # If the MACRO_EXPANSION and EXPAND_ONLY_PREDEF tags are set to YES then this
 # tag can be used to specify a list of macro names that should be expanded. The

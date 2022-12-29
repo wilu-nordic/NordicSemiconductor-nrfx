@@ -35,7 +35,7 @@
 #define NRFX_WDT_H__
 
 #include <nrfx.h>
-#include <hal/nrf_wdt.h>
+#include <haly/nrfy_wdt.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -55,8 +55,12 @@ extern "C" {
     #define NRFX_WDT_IRQ_CONFIG
 #endif
 
-/** @brief WDT event handler function type. */
-typedef void (*nrfx_wdt_event_handler_t)(void);
+/** @brief WDT event handler function type.
+ *
+ * @param[in] requests Value of the request status register. Set bits can be used to determine
+ *                     which RR register was the reason for timeout event.
+ */
+typedef void (*nrfx_wdt_event_handler_t)(uint32_t requests);
 
 /** @brief WDT channel ID type. */
 typedef nrf_wdt_rr_register_t nrfx_wdt_channel_id;
@@ -70,12 +74,7 @@ typedef struct
 
 #ifndef __NRFX_DOXYGEN__
 enum {
-#if NRFX_CHECK(NRFX_WDT0_ENABLED)
-    NRFX_WDT0_INST_IDX,
-#endif
-#if NRFX_CHECK(NRFX_WDT1_ENABLED)
-    NRFX_WDT1_INST_IDX,
-#endif
+    NRFX_INSTANCE_ENUM_LIST(WDT)
     NRFX_WDT_ENABLED_COUNT
 };
 #endif
@@ -87,13 +86,13 @@ enum {
     .drv_inst_idx = NRFX_CONCAT_3(NRFX_WDT, id, _INST_IDX), \
 }
 
-/** @brief Struct for WDT initialization. */
+/**@brief Struct for WDT initialization. */
 typedef struct
 {
-    nrf_wdt_behaviour_t    behaviour;          /**< WDT behaviour when CPU in sleep/halt mode. */
-    uint32_t               reload_value;       /**< WDT reload value in ms. */
+    uint32_t behaviour;          /**< WDT behaviour flags bitmask, constructed from @ref nrf_wdt_behaviour_mask_t. */
+    uint32_t reload_value;       /**< WDT reload value in ms. */
 #if !NRFX_CHECK(NRFX_WDT_CONFIG_NO_IRQ) || defined(__NRFX_DOXYGEN__)
-    uint8_t                interrupt_priority; /**< WDT interrupt priority */
+    uint8_t  interrupt_priority; /**< WDT interrupt priority */
 #endif
 } nrfx_wdt_config_t;
 
@@ -104,11 +103,11 @@ typedef struct
  * - run when CPU is in SLEEP mode, pause when in HALT mode
  * - reload value: 2000 ms
  */
-#define NRFX_WDT_DEFAULT_CONFIG                          \
-{                                                        \
-    .behaviour          = NRF_WDT_BEHAVIOUR_RUN_SLEEP,   \
-    .reload_value       = 2000,                          \
-    NRFX_WDT_IRQ_CONFIG                                  \
+#define NRFX_WDT_DEFAULT_CONFIG                             \
+{                                                           \
+    .behaviour          = NRF_WDT_BEHAVIOUR_RUN_SLEEP_MASK, \
+    .reload_value       = 2000,                             \
+    NRFX_WDT_IRQ_CONFIG                                     \
 }
 
 /**
@@ -116,6 +115,8 @@ typedef struct
  *
  * @param[in] p_instance        Pointer to the driver instance structure.
  * @param[in] p_config          Pointer to the structure with the initial configuration.
+ *                              NULL if configuration is to be skipped and will be done later
+ *                              using @ref nrfx_wdt_reconfigure.
  * @param[in] wdt_event_handler Event handler provided by the user. Ignored when
  *                              @ref NRFX_WDT_CONFIG_NO_IRQ option is enabled.
  *
@@ -127,9 +128,22 @@ nrfx_err_t nrfx_wdt_init(nrfx_wdt_t const *        p_instance,
                          nrfx_wdt_event_handler_t  wdt_event_handler);
 
 /**
+ * @brief Function for reconfiguring the watchdog.
+ *
+ * @param[in] p_instance Pointer to the driver instance structure.
+ * @param[in] p_config   Pointer to the structure with the initial configuration.
+ *
+ * @retval NRFX_SUCCESS             Reconfiguration was successful.
+ * @retval NRFX_ERROR_BUSY          The watchdog is already active.
+ * @retval NRFX_ERROR_INVALID_STATE The watchdog is uninitialized.
+ */
+nrfx_err_t nrfx_wdt_reconfigure(nrfx_wdt_t const *        p_instance,
+                                nrfx_wdt_config_t const * p_config);
+
+/**
  * @brief Function for allocating a watchdog channel.
  *
- * @note This function can not be called after nrfx_wdt_start().
+ * @note This function can not be called after @ref nrfx_wdt_enable.
  *
  * @param[in]  p_instance   Pointer to the driver instance structure.
  * @param[out] p_channel_id ID of granted channel.
@@ -190,36 +204,24 @@ NRFX_STATIC_INLINE uint32_t nrfx_wdt_task_address_get(nrfx_wdt_t const * p_insta
 NRFX_STATIC_INLINE uint32_t nrfx_wdt_event_address_get(nrfx_wdt_t const * p_instance,
                                                        nrf_wdt_event_t    event);
 
-
 #ifndef NRFX_DECLARE_ONLY
 NRFX_STATIC_INLINE uint32_t nrfx_wdt_task_address_get(nrfx_wdt_t const * p_instance,
                                                       nrf_wdt_task_t     task)
 {
-    return nrf_wdt_task_address_get(p_instance->p_reg, task);
+    return nrfy_wdt_task_address_get(p_instance->p_reg, task);
 }
 
 NRFX_STATIC_INLINE uint32_t nrfx_wdt_event_address_get(nrfx_wdt_t const * p_instance,
                                                        nrf_wdt_event_t    event)
 {
-    return nrf_wdt_event_address_get(p_instance->p_reg, event);
+    return nrfy_wdt_event_address_get(p_instance->p_reg, event);
 }
 #endif // NRFX_DECLARE_ONLY
 
-/**
- * @brief Macro returning WDT interrupt handler.
- *
- * param[in] idx WDT index.
- *
- * @return Interrupt handler.
- */
-#define NRFX_WDT_INST_HANDLER_GET(idx) NRFX_CONCAT_3(nrfx_wdt_, idx, _irq_handler)
-
 /** @} */
 
-
-void nrfx_wdt_0_irq_handler(void);
-void nrfx_wdt_1_irq_handler(void);
-
+/* Declare interrupt handlers for enabled instances. */
+NRFX_INSTANCE_IRQ_HANDLERS_DECLARE(WDT, wdt)
 
 #ifdef __cplusplus
 }

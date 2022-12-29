@@ -55,17 +55,12 @@ void SystemStoreFICRNS();
     uint32_t SystemCoreClock __attribute__((used)) = __SYSTEM_CLOCK;
 #endif
 
-/* Global values used used in Secure mode SystemInit. */
-#if !defined(NRF_TRUSTZONE_NONSECURE)
-    /* Global values used by UICR erase fix algorithm. */
-    static uint32_t uicr_erased_value;
-    static uint32_t uicr_new_value;
-#endif
-
 /* Errata are only handled in secure mode since they usually need access to FICR. */
 #if !defined(NRF_TRUSTZONE_NONSECURE)
-    static bool uicr_HFXOSRC_erased(void);
-    static bool uicr_HFXOCNT_erased(void);
+    #if !defined(NRF_SKIP_UICR_HFXO_WORKAROUND)
+        static bool uicr_HFXOSRC_erased(void);
+        static bool uicr_HFXOCNT_erased(void);
+    #endif
     static bool is_empty_word(uint32_t const volatile * word);
 #endif
 
@@ -91,7 +86,7 @@ void SystemInit(void)
             NRF_POWER_S->EVENTS_SLEEPENTER = (POWER_EVENTS_SLEEPENTER_EVENTS_SLEEPENTER_NotGenerated << POWER_EVENTS_SLEEPENTER_EVENTS_SLEEPENTER_Pos);
             NRF_POWER_S->EVENTS_SLEEPEXIT = (POWER_EVENTS_SLEEPEXIT_EVENTS_SLEEPEXIT_NotGenerated << POWER_EVENTS_SLEEPEXIT_EVENTS_SLEEPEXIT_Pos);
         }
-
+        
         /* Workaround for Errata 14 "REGULATORS: LDO mode at startup" found at the Errata document
             for your device located at https://infocenter.nordicsemi.com/index.jsp  */
         if (nrf91_errata_14()){
@@ -124,7 +119,7 @@ void SystemInit(void)
 
         /* Trimming of the device. Copy all the trimming values from FICR into the target addresses. Trim
          until one ADDR is not initialized. */
-        
+            
         for (uint32_t index = 0; index < 256ul && !is_empty_word(&NRF_FICR_S->TRIMCNF[index].ADDR); index++){
           #if defined ( __ICCARM__ )
               #pragma diag_suppress=Pa082
@@ -135,41 +130,45 @@ void SystemInit(void)
           #endif
         }
 
-        /* Set UICR->HFXOSRC and UICR->HFXOCNT to working defaults if UICR was erased */
-        if (uicr_HFXOSRC_erased() || uicr_HFXOCNT_erased()) {
-            __DSB();
-            /* Wait for pending NVMC operations to finish */
-            while (NRF_NVMC_S->READY != NVMC_READY_READY_Ready);
+        #if !defined(NRF_SKIP_UICR_HFXO_WORKAROUND)
+            uint32_t uicr_erased_value;
+            uint32_t uicr_new_value;
+            /* Set UICR->HFXOSRC and UICR->HFXOCNT to working defaults if UICR was erased */
+            if (uicr_HFXOSRC_erased() || uicr_HFXOCNT_erased()) {
+                __DSB();
+                /* Wait for pending NVMC operations to finish */
+                while (NRF_NVMC_S->READY != NVMC_READY_READY_Ready);
 
-            /* Enable write mode in NVMC */
-            NRF_NVMC_S->CONFIG = NVMC_CONFIG_WEN_Wen;
-            while (NRF_NVMC_S->READY != NVMC_READY_READY_Ready);
+                /* Enable write mode in NVMC */
+                NRF_NVMC_S->CONFIG = NVMC_CONFIG_WEN_Wen;
+                while (NRF_NVMC_S->READY != NVMC_READY_READY_Ready);
 
-            if (uicr_HFXOSRC_erased()){
-                  /* Write default value to UICR->HFXOSRC */
-                  uicr_erased_value = NRF_UICR_S->HFXOSRC;
-                  uicr_new_value = (uicr_erased_value & ~UICR_HFXOSRC_HFXOSRC_Msk) | UICR_HFXOSRC_HFXOSRC_TCXO;
-                  NRF_UICR_S->HFXOSRC = uicr_new_value;
-                  __DSB();
-                  while (NRF_NVMC_S->READY != NVMC_READY_READY_Ready);
+                if (uicr_HFXOSRC_erased()){
+                    /* Write default value to UICR->HFXOSRC */
+                    uicr_erased_value = NRF_UICR_S->HFXOSRC;
+                    uicr_new_value = (uicr_erased_value & ~UICR_HFXOSRC_HFXOSRC_Msk) | UICR_HFXOSRC_HFXOSRC_TCXO;
+                    NRF_UICR_S->HFXOSRC = uicr_new_value;
+                    __DSB();
+                    while (NRF_NVMC_S->READY != NVMC_READY_READY_Ready);
+                }
+
+                if (uicr_HFXOCNT_erased()){
+                    /* Write default value to UICR->HFXOCNT */
+                    uicr_erased_value = NRF_UICR_S->HFXOCNT;
+                    uicr_new_value = (uicr_erased_value & ~UICR_HFXOCNT_HFXOCNT_Msk) | 0x20;
+                    NRF_UICR_S->HFXOCNT = uicr_new_value;
+                    __DSB();
+                    while (NRF_NVMC_S->READY != NVMC_READY_READY_Ready);
+                }
+
+                /* Enable read mode in NVMC */
+                NRF_NVMC_S->CONFIG = NVMC_CONFIG_WEN_Ren;
+                while (NRF_NVMC_S->READY != NVMC_READY_READY_Ready);
+
+                /* Reset to apply clock select update */
+                NVIC_SystemReset();
             }
-
-            if (uicr_HFXOCNT_erased()){
-                  /* Write default value to UICR->HFXOCNT */
-                  uicr_erased_value = NRF_UICR_S->HFXOCNT;
-                  uicr_new_value = (uicr_erased_value & ~UICR_HFXOCNT_HFXOCNT_Msk) | 0x20;
-                  NRF_UICR_S->HFXOCNT = uicr_new_value;
-                  __DSB();
-                  while (NRF_NVMC_S->READY != NVMC_READY_READY_Ready);
-            }
-
-            /* Enable read mode in NVMC */
-            NRF_NVMC_S->CONFIG = NVMC_CONFIG_WEN_Ren;
-            while (NRF_NVMC_S->READY != NVMC_READY_READY_Ready);
-
-            /* Reset to apply clock select update */
-            NVIC_SystemReset();
-        }
+        #endif
 
         /* Enable Trace functionality. If ENABLE_TRACE is not defined, TRACE pins will be used as GPIOs (see Product
            Specification to see which ones). */
@@ -203,7 +202,7 @@ void SystemInit(void)
             NRF_TAD_S->TRACEPORTSPEED = TAD_TRACEPORTSPEED_TRACEPORTSPEED_32MHz;
 
             *((volatile uint32_t *)(0xE0053000ul)) = 0x00000001ul;
-            
+
             *((volatile uint32_t *)(0xE005AFB0ul))  = 0xC5ACCE55ul;
             *((volatile uint32_t *)(0xE005A000ul)) &= 0xFFFFFF00ul;
             *((volatile uint32_t *)(0xE005A004ul))  = 0x00000009ul;
@@ -237,9 +236,9 @@ void SystemInit(void)
     * compiler. Since the FPU consumes energy, remember to disable FPU use in the compiler if floating point unit
     * operations are not used in your code. */
     #if (__FPU_USED == 1)
-      SCB->CPACR |= (3UL << 20) | (3UL << 22);
-      __DSB();
-      __ISB();
+        SCB->CPACR |= (3UL << 20) | (3UL << 22);
+        __DSB();
+        __ISB();
     #endif
     
     SystemCoreClockUpdate();
@@ -248,24 +247,26 @@ void SystemInit(void)
 
 #if !defined(NRF_TRUSTZONE_NONSECURE)
 
-    bool uicr_HFXOCNT_erased()
-    {
-        if (is_empty_word(&NRF_UICR_S->HFXOCNT)) {
-            return true;
+    #if !defined(NRF_SKIP_UICR_HFXO_WORKAROUND)
+        bool uicr_HFXOCNT_erased()
+        {
+            if (is_empty_word(&NRF_UICR_S->HFXOCNT)) {
+                return true;
+            }
+            return false;
         }
-        return false;
-    }
-    
-    
-    bool uicr_HFXOSRC_erased()
-    {
-        uint32_t HFXOSRC_readout = NRF_UICR_S->HFXOSRC;
-        __DSB();
-        if ((HFXOSRC_readout & UICR_HFXOSRC_HFXOSRC_Msk) != UICR_HFXOSRC_HFXOSRC_TCXO) {
-            return true;
+        
+        
+        bool uicr_HFXOSRC_erased()
+        {
+            uint32_t HFXOSRC_readout = NRF_UICR_S->HFXOSRC;
+            __DSB();
+            if ((HFXOSRC_readout & UICR_HFXOSRC_HFXOSRC_Msk) != UICR_HFXOSRC_HFXOSRC_TCXO) {
+                return true;
+            }
+            return false;
         }
-        return false;
-    }
+    #endif
     
     bool is_empty_word(uint32_t const volatile * word)
     {

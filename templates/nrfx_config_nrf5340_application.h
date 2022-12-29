@@ -140,10 +140,6 @@
 #define GPIOTE_IRQHandler GPIOTE0_IRQHandler
 #endif
 
-/* Fixups for the QDEC driver. */
-#define NRF_QDEC        NRF_QDEC0
-#define QDEC_IRQHandler QDEC0_IRQHandler
-
 // <<< Use Configuration Wizard in Context Menu >>>\n
 
 // <h> nRF_Drivers
@@ -532,6 +528,12 @@
 //==========================================================
 #ifndef NRFX_I2S_ENABLED
 #define NRFX_I2S_ENABLED 0
+#endif
+
+// <q> NRFX_I2S_ENABLED  - Enable I2S0 instance
+
+#ifndef NRFX_I2S0_ENABLED
+#define NRFX_I2S0_ENABLED 0
 #endif
 
 // <o> NRFX_I2S_DEFAULT_CONFIG_IRQ_PRIORITY  - Interrupt priority.
@@ -1070,6 +1072,16 @@
 //==========================================================
 #ifndef NRFX_QDEC_ENABLED
 #define NRFX_QDEC_ENABLED 0
+#endif
+
+// <q> NRFX_QDEC0_ENABLED  - Enable QDEC0 instance
+#ifndef NRFX_QDEC0_ENABLED
+#define NRFX_QDEC0_ENABLED 0
+#endif
+
+// <q> NRFX_QDEC1_ENABLED  - Enable QDEC1 instance
+#ifndef NRFX_QDEC1_ENABLED
+#define NRFX_QDEC1_ENABLED 0
 #endif
 
 // <o> NRFX_QDEC_DEFAULT_CONFIG_IRQ_PRIORITY  - Interrupt priority

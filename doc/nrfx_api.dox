@@ -19,6 +19,8 @@
 
 @defgroup nrf_comp COMP
 
+@defgroup nrf_cpuconf CPUCONF
+
 @defgroup nrf_systick Cortex-M Systick
 
 @defgroup nrf_dcnf DCNF
@@ -41,6 +43,10 @@
 
 @defgroup nrf_ipc IPC
 
+@defgroup nrf_ipcmap IPCMAP
+
+@defgroup nrf_ipct IPCT
+
 @defgroup nrf_kmu KMU
 
 @defgroup nrf_lpcomp LPCOMP
@@ -48,6 +54,8 @@
 @defgroup nrf_mpu MPU
 
 @defgroup nrf_mutex MUTEX
+
+@defgroup nrf_mvdma MVDMA
 
 @defgroup nrf_mwu MWU
 
@@ -69,7 +77,11 @@
 
 @defgroup nrf_radio RADIO
 
+@defgroup nrf_ramc RAMC
+
 @defgroup nrf_rng RNG
+
+@defgroup nrf_rramc RRAMC
 
 @defgroup nrf_rtc RTC
 

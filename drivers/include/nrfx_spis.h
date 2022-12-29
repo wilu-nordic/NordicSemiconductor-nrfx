@@ -36,7 +36,7 @@
 
 #include <nrfx.h>
 #include <hal/nrf_spis.h>
-#include <hal/nrf_gpio.h>
+#include <haly/nrfy_gpio.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -58,18 +58,7 @@ typedef struct
 
 #ifndef __NRFX_DOXYGEN__
 enum {
-#if NRFX_CHECK(NRFX_SPIS0_ENABLED)
-    NRFX_SPIS0_INST_IDX,
-#endif
-#if NRFX_CHECK(NRFX_SPIS1_ENABLED)
-    NRFX_SPIS1_INST_IDX,
-#endif
-#if NRFX_CHECK(NRFX_SPIS2_ENABLED)
-    NRFX_SPIS2_INST_IDX,
-#endif
-#if NRFX_CHECK(NRFX_SPIS3_ENABLED)
-    NRFX_SPIS3_INST_IDX,
-#endif
+    NRFX_INSTANCE_ENUM_LIST(SPIS)
     NRFX_SPIS_ENABLED_COUNT
 };
 #endif
@@ -120,19 +109,21 @@ typedef struct
  * @param[in] _pin_miso MISO pin.
  * @param[in] _pin_csn  CSN pin.
  */
-#define NRFX_SPIS_DEFAULT_CONFIG(_pin_sck, _pin_mosi, _pin_miso, _pin_csn)  \
-{                                                                           \
-    .miso_pin     = _pin_miso,                                              \
-    .mosi_pin     = _pin_mosi,                                              \
-    .sck_pin      = _pin_sck,                                               \
-    .csn_pin      = _pin_csn,                                               \
-    .mode         = NRF_SPIS_MODE_0,                                        \
-    .bit_order    = NRF_SPIS_BIT_ORDER_MSB_FIRST,                           \
-    .csn_pullup   = NRF_GPIO_PIN_NOPULL,                                    \
-    .miso_drive   = NRF_GPIO_PIN_S0S1,                                      \
-    .def          = 0xFF,                                                   \
-    .orc          = 0xFE,                                                   \
-    .irq_priority = NRFX_SPIS_DEFAULT_CONFIG_IRQ_PRIORITY,                  \
+#define NRFX_SPIS_DEFAULT_CONFIG(_pin_sck, _pin_mosi, _pin_miso, _pin_csn)   \
+{                                                                            \
+    .miso_pin      = _pin_miso,                                              \
+    .mosi_pin      = _pin_mosi,                                              \
+    .sck_pin       = _pin_sck,                                               \
+    .csn_pin       = _pin_csn,                                               \
+    .mode          = NRF_SPIS_MODE_0,                                        \
+    .bit_order     = NRF_SPIS_BIT_ORDER_MSB_FIRST,                           \
+    .csn_pullup    = NRF_GPIO_PIN_NOPULL,                                    \
+    .miso_drive    = NRF_GPIO_PIN_S0S1,                                      \
+    .def           = 0xFF,                                                   \
+    .orc           = 0xFE,                                                   \
+    .irq_priority  = NRFX_SPIS_DEFAULT_CONFIG_IRQ_PRIORITY,                  \
+    .skip_gpio_cfg = false,                                                  \
+    .skip_psel_cfg = false,                                                  \
 }
 
 /** @brief SPI peripheral device configuration data. */
@@ -211,6 +202,19 @@ nrfx_err_t nrfx_spis_init(nrfx_spis_t const *        p_instance,
                           void *                     p_context);
 
 /**
+ * @brief Function for reconfiguring the SPI slave driver instance.
+ *
+ * @param[in] p_instance Pointer to the driver instance structure.
+ * @param[in] p_config   Pointer to the structure with the configuration.
+ *
+ * @retval NRFX_SUCCESS             Reconfiguration was successful.
+ * @retval NRFX_ERROR_BUSY          The driver is during transfer.
+ * @retval NRFX_ERROR_INVALID_STATE The driver is uninitialized.
+ */
+nrfx_err_t nrfx_spis_reconfigure(nrfx_spis_t const *        p_instance,
+                                 nrfx_spis_config_t const * p_config);
+
+/**
  * @brief Function for uninitializing the SPI slave driver instance.
  *
  * @param[in] p_instance Pointer to the driver instance structure.
@@ -256,23 +260,10 @@ nrfx_err_t nrfx_spis_buffers_set(nrfx_spis_t const * p_instance,
                                  uint8_t *           p_rx_buffer,
                                  size_t              rx_buffer_length);
 
-/**
- * @brief Macro returning SPIS interrupt handler.
- *
- * param[in] idx SPIS index.
- *
- * @return Interrupt handler.
- */
-#define NRFX_SPIS_INST_HANDLER_GET(idx) NRFX_CONCAT_3(nrfx_spis_, idx, _irq_handler)
-
 /** @} */
 
-
-void nrfx_spis_0_irq_handler(void);
-void nrfx_spis_1_irq_handler(void);
-void nrfx_spis_2_irq_handler(void);
-void nrfx_spis_3_irq_handler(void);
-
+/* Declare interrupt handlers for enabled instances. */
+NRFX_INSTANCE_IRQ_HANDLERS_DECLARE(SPIS, spis)
 
 #ifdef __cplusplus
 }

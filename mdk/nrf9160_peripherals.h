@@ -52,6 +52,9 @@ POSSIBILITY OF SUCH DAMAGE.
 
 #define NVMC_FEATURE_CACHE_PRESENT
 
+/* Memory Protection Unit */
+#define MPU_REGION_NUM 16
+
 /* GPIO */
 #define GPIO_PRESENT
 #define GPIO_COUNT 1

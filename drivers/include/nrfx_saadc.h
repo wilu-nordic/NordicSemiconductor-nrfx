@@ -35,7 +35,7 @@
 #define NRFX_SAADC_H__
 
 #include <nrfx.h>
-#include <hal/nrf_saadc.h>
+#include <haly/nrfy_saadc.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -48,14 +48,20 @@ extern "C" {
  * @brief   Successive Approximation Analog-to-Digital Converter (SAADC) peripheral driver.
  */
 
+#if NRF_SAADC_HAS_ACQTIME_ENUM || defined(__NRFX_DOXYGEN__)
+/** @brief Auxiliary symbol specifying default value for the SAADC acquisition time. */
+#define NRFX_SAADC_DEFAULT_ACQTIME NRF_SAADC_ACQTIME_10US
+#else
+#define NRFX_SAADC_DEFAULT_ACQTIME 79
+#endif
 
 /**
  * @brief SAADC channel default configuration for the single-ended mode.
  *
  * This configuration sets up single-ended SAADC channel with the following options:
  * - resistor ladder disabled
- * - gain: 1/6
- * - reference voltage: internal 0.6 V
+ * - gain: 1
+ * - reference voltage: internal
  * - sample acquisition time: 10 us
  * - burst disabled
  *
@@ -70,9 +76,9 @@ extern "C" {
     {                                                       \
         .resistor_p = NRF_SAADC_RESISTOR_DISABLED,          \
         .resistor_n = NRF_SAADC_RESISTOR_DISABLED,          \
-        .gain       = NRF_SAADC_GAIN1_6,                    \
+        .gain       = NRF_SAADC_GAIN1,                      \
         .reference  = NRF_SAADC_REFERENCE_INTERNAL,         \
-        .acq_time   = NRF_SAADC_ACQTIME_10US,               \
+        .acq_time   = NRFX_SAADC_DEFAULT_ACQTIME,           \
         .mode       = NRF_SAADC_MODE_SINGLE_ENDED,          \
         .burst      = NRF_SAADC_BURST_DISABLED,             \
     },                                                      \
@@ -87,7 +93,7 @@ extern "C" {
  * This configuration sets up differential SAADC channel with the following options:
  * - resistor ladder disabled
  * - gain: 1/6
- * - reference voltage: internal 0.6 V
+ * - reference voltage: internal
  * - sample acquisition time: 10 us
  * - burst disabled
  *
@@ -103,9 +109,9 @@ extern "C" {
     {                                                                   \
         .resistor_p = NRF_SAADC_RESISTOR_DISABLED,                      \
         .resistor_n = NRF_SAADC_RESISTOR_DISABLED,                      \
-        .gain       = NRF_SAADC_GAIN1_6,                                \
+        .gain       = NRF_SAADC_GAIN1,                                  \
         .reference  = NRF_SAADC_REFERENCE_INTERNAL,                     \
-        .acq_time   = NRF_SAADC_ACQTIME_10US,                           \
+        .acq_time   = NRFX_SAADC_DEFAULT_ACQTIME,                       \
         .mode       = NRF_SAADC_MODE_DIFFERENTIAL,                      \
         .burst      = NRF_SAADC_BURST_DISABLED,                         \
     },                                                                  \
@@ -328,10 +334,8 @@ nrfx_err_t nrfx_saadc_simple_mode_set(uint32_t                   channel_mask,
  * @retval NRFX_SUCCESS             Initialization was successful.
  * @retval NRFX_ERROR_BUSY          There is a conversion or calibration ongoing.
  * @retval NRFX_ERROR_INVALID_PARAM Attempt to activate channel that is not configured.
- * @retval NRFX_ERROR_NOT_SUPPORTED Attempt to activate either of the following:
- *                                  * internal timer in the blocking mode,
- *                                  * internal timer with multiple channels enabled,
- *                                  * oversampling without burst with multiple channels enabled.
+ * @retval NRFX_ERROR_NOT_SUPPORTED Attempt to activate internal timer or oversampling without burst
+ *                                  with multiple channels enabled.
  */
 nrfx_err_t nrfx_saadc_advanced_mode_set(uint32_t                        channel_mask,
                                         nrf_saadc_resolution_t          resolution,

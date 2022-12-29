@@ -56,6 +56,12 @@
     #include <soc/nrfx_irqs_nrf5340_application.h>
 #elif defined(NRF5340_XXAA_NETWORK)
     #include <soc/nrfx_irqs_nrf5340_network.h>
+#elif defined(HALTIUM_XXAA) && !defined(NRF9230_XXAA)
+    #include <soc/nrfx_irqs_haltium.h>
+#elif defined(NRF9230_XXAA)
+    #include <soc/nrfx_irqs_nrf9230.h>
+#elif defined(MOONLIGHT_XXAA)
+    #include <soc/nrfx_irqs_moonlight.h>
 #else
     #error "Unknown device."
 #endif

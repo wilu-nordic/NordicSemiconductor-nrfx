@@ -54,6 +54,7 @@ typedef enum
 {
     NRFX_CLOCK_EVT_HFCLK_STARTED,      ///< HFCLK has been started.
     NRFX_CLOCK_EVT_LFCLK_STARTED,      ///< LFCLK has been started.
+    NRFX_CLOCK_EVT_PLL_STARTED,        ///< PLL has been started.
     NRFX_CLOCK_EVT_CTTO,               ///< Calibration timeout.
     NRFX_CLOCK_EVT_CAL_DONE,           ///< Calibration has been done.
     NRFX_CLOCK_EVT_HFCLKAUDIO_STARTED, ///< HFCLKAUDIO has been started.
@@ -253,8 +254,7 @@ void nrfx_clock_calibration_timer_start(uint8_t interval);
 /** @brief Function for stopping the calibration timer. */
 void nrfx_clock_calibration_timer_stop(void);
 
-/**
- * @brief Function for returning a requested task address for the clock driver module.
+/**@brief Function for returning a requested task address for the clock driver module.
  *
  * @param[in] task One of the peripheral tasks.
  *
@@ -262,8 +262,7 @@ void nrfx_clock_calibration_timer_stop(void);
  */
 NRFX_STATIC_INLINE uint32_t nrfx_clock_ppi_task_addr(nrf_clock_task_t task);
 
-/**
- * @brief Function for returning a requested event address for the clock driver module.
+/**@brief Function for returning a requested event address for the clock driver module.
  *
  * @param[in] event One of the peripheral events.
  *

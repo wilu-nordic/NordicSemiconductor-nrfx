@@ -35,8 +35,8 @@
 #define NRFX_GPIOTE_H__
 
 #include <nrfx.h>
-#include <hal/nrf_gpiote.h>
-#include <hal/nrf_gpio.h>
+#include <haly/nrfy_gpiote.h>
+#include <haly/nrfy_gpio.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -805,12 +805,12 @@ NRFX_STATIC_INLINE void nrfx_gpiote_in_event_disable(nrfx_gpiote_pin_t pin)
 #if NRF_GPIOTE_HAS_LATENCY
 NRFX_STATIC_INLINE void nrfx_gpiote_latency_set(nrf_gpiote_latency_t latency)
 {
-    nrf_gpiote_latency_set(NRF_GPIOTE, latency);
+    nrfy_gpiote_latency_set(NRF_GPIOTE, latency);
 }
 
 NRFX_STATIC_INLINE nrf_gpiote_latency_t nrfx_gpiote_latency_get(void)
 {
-    return nrf_gpiote_latency_get(NRF_GPIOTE);
+    return nrfy_gpiote_latency_get(NRF_GPIOTE);
 }
 #endif // NRF_GPIOTE_HAS_LATENCY
 

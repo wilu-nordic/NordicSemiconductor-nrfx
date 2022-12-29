@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 - 2022, Nordic Semiconductor ASA
+ * Copyright (c) 2020 - 2022, Nordic Semiconductor ASA
  * All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
@@ -34,7 +34,6 @@
 #ifndef NRFX_CONFIG_H__
 #define NRFX_CONFIG_H__
 
-#include <nrfx_config_common.h>
 #if defined(NRF51)
     #include <nrfx_config_nrf51.h>
 #elif defined(NRF52805_XXAA)
@@ -51,14 +50,45 @@
     #include <nrfx_config_nrf52833.h>
 #elif defined(NRF52840_XXAA)
     #include <nrfx_config_nrf52840.h>
-#elif defined(NRF5340_XXAA_APPLICATION)
+#elif defined(NRF5340_XXAA) && defined(NRF_APPLICATION)
     #include <nrfx_config_nrf5340_application.h>
-#elif defined(NRF5340_XXAA_NETWORK)
+#elif defined(NRF5340_XXAA) && defined(NRF_NETWORK)
     #include <nrfx_config_nrf5340_network.h>
+#elif defined(NRF54H20_ENGA_XXAA) || defined(LILIUMFP1_XXAA) || defined(NRF9230_XXAA)
+    #if defined(NRF_APPLICATION)
+        #include <nrfx_config_haltium_application.h>
+    #elif defined(NRF_RADIOCORE)
+        #include <nrfx_config_haltium_network.h>
+    #elif defined(NRF_CELLCORE)
+        #include <nrfx_config_haltium_cellular.h>
+    #elif defined(NRF_SECURE)
+        #include <nrfx_config_haltium_secure.h>
+    #elif defined(NRF_FLPR)
+        #include <nrfx_config_haltium_flpr.h>
+    #elif defined(NRF_PPR)
+        #include <nrfx_config_haltium_ppr.h>
+    #elif defined(NRF_SYSCTRL)
+        #include <nrfx_config_haltium_sysctrl.h>
+    #endif
 #elif defined(NRF9160_XXAA)
     #include <nrfx_config_nrf9160.h>
 #else
     #error "Unknown device."
+#endif
+
+#if defined(NRF54H20_ENGA_XXAA) || defined(LILIUMFP1_XXAA)
+    #include <nrfx_config_haltium_global.h>
+    #include <nrfx_config_nrf5420_global.h>
+#endif
+
+#if defined(NRF9230_XXAA)
+    #include <nrfx_config_haltium_global.h>
+    #include <nrfx_config_nrf9230_global.h>
+#endif
+
+#if defined(NRF7140_XXAA)
+    #include <nrfx_config_haltium_global.h>
+    #include <nrfx_config_nrf7140_global.h>
 #endif
 
 #endif // NRFX_CONFIG_H__

@@ -1,44 +1,26 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
-## [2.10.0] - 2022-10-25
+## [3.0.0-beta-milestone-2]
 ### Added
-- Added NRFX_CONFIG_API_VER_2_9 and NRFX_CONFIG_API_VER_2_10 symbols that guard API-breaking changes. Deprecated API is used by default.
-- Added new signature for the event handler in the IPC driver that accepts event index instead of event bitmask. The previous signature is deprecated.
-- Added nrfx_ipc_gpmem_get() function that is used to get data from the GPMEM register in IPC. It should be now used instead of nrfx_ipc_mem_get(), which is deprecated.
-- Added samples for the following drivers: EGU, PWM, RNG, SAADC, SPIM, SPIS, TEMP, TIMER, TWIM, TWIS, UARTE. They are a part of `zephyrproject-rtos/hal_nordic/nrfx` repository.
-- Introduced the NRFX_{PERIPH}_INST_HANDLER_GET() macro for getting interrupt handler associated with the specified driver instance.
-- Introduced the NRFX_{PERIPH}_INST_GET() macro for getting pointer to the structure of the registers of the specified peripheral.
-- Introduced the NRF_TIMER_PRESCALER_CALCULATE() macro for computing prescaler value for given TIMER base frequency and desired frequency.
-- Introduced the NRF_TIMER_BASE_FREQUENCY_GET() macro for getting base frequency in Hz for the specified TIMER instance.
-- Added missing NRFX_RESET_REASON_CTRLAP_MASK in nrfx_reset_reason_mask_t for nRF9160.
-- Added missing NRFX_RESET_REASON_SREQ_MASK in nrfx_reset_reason_mask_t.
+- Added support for Haltium Eldoradoz FPGA and Z1 emulator.
+- Added initial support for RISC-V architecture.
+- Added HALs for: BELLBOARD, CPUCONF, EXMIF, GRTC, IPCMAP, IRQMAP, LRCCONF, MPC, MVDMA, PPIB, RESETHUB, RESETINFO, STM, TAMPC, UICR and VPR.
+- Added support for Haltium-specific features in the following HALs: CACHE, CCM, COMP, DCNF, GPIO, RADIO and SPU.
+- Added support for hardware access layers with cache and barrier support (HALY).
+- Added HALYs for: BELLBOARD, COMP, DPPI, GPIO, GRTC, I2S, LPCOMP, MVDMA, PDM, PWM, QDEC, RTC, SAADC, SPIM, TIMER, TWIM, UARTE, VPR and WDT.
+- Added drivers for: BELLBOARD, MVDMA and VEVIF.
+- Added support for Haltium peripheral instances in the following drivers: EGU, I2S, QDEC and TIMER.
+- Added data cache management macros to glue layer.
+- Added the nrfx_vdma helper layer, to facilitate developing code that uses the EasyVectorDMA.
+- Added the nrfx_idc helper layer, to facilitate developing generic code that uses inter-processor signalling.
+- Added initial support for the retention of the drivers.
 
 ### Changed
-- Updated MDK to version 8.51.0.
-- Refactored the TIMER driver to allow user handler to be NULL.
-- Removed magic numbers from nrf_twim_event_t type in TWIM HAL.
-
-### Fixed
-- Fixed the NRFX_ROUNDED_DIV() macro for negative numbers.
-- Disabled array bounds warning for nrf_clock_is_running() function that was false positive in GCC 12 and above.
-
-## [2.9.0] - 2022-07-19
-### Added
-- Added configuration parameter NRFX_NFCT_PARAM_ID_FDT_MIN that allows settting the value of the FRAMEDELAYMIN register.
-- Added nrf_gpio_pin_sel_t enumerator. It should be now used instead of nrf_gpio_pin_mcusel_t, which is deprecated.
-- Added nrf_gpio_pin_control_select() function. It should be now used instead of nrf_gpio_pin_mcu_select(), which is deprecated.
-- Added NRF_TIMER_CC_COUNT_MAX symbol that specifies maximum number of available compare channels.
-- Added NRF_TIMER_ALL_CHANNELS_INT_MASK symbol that is used for creating the interrupt bitmask for all compare channels.
-- Added nrf_timer_prescaler_set() and nrf_timer_prescaler_get() functions that are used for setting and retrieving the prescaler factor. They should be now used instead of nrf_timer_frequency_set() and nrf_timer_frequency_get(), which are deprecated.
-- Added NRFX_MAX(), NRFX_MIN() and NRFX_ABS() macros.
-
-### Changed
-- Updated MDK to version 8.47.0.
-
-### Fixed
-- Fixed logging level in nrfx_uart_init() and nrfx_uarte_init() functions. It was reduced from warning to info.
-- Fixed IO3 level used in nrfx_qspi_mem_busy_check(). The line is now kept high to prevent memory status from being read incorrectly.
+- Updated MDK to version 8.40.1 Internal Eldoradoz.
+- Updated NRFX_PERIPHERAL_ID_GET macro to support Haltium IRQ numbers.
+- Modified following drivers to use HALY instead of HAL: COMP, DPPI, I2S, LPCOMP, PDM, PWM, QDEC, RTC, SAADC, SPIM, TIMER, TWIM, UARTE and WDT.
+- Refactored the QDEC and I2S drivers to support multiple instances.
 
 ## [2.8.0] - 2022-04-05
 ### Added
@@ -55,7 +37,6 @@ All notable changes to this project are documented in this file.
 ### Fixed
 - Fixed event processing order in the SAADC driver. Previously, incorrect buffer might have been filled when double-buffered sampling was used with END event and START task being connected through (D)PPI.
 - Fixed the limits feature that could be spuriously triggered during calibration procedure in the SAADC driver.
-
 ## [2.7.0] - 2021-12-16
 ### Added
 - Added new fields in the driver configuration structures to allow skipping GPIO and/or PSEL register configuration. Affected drivers: I2S, PDM, PWM, QDEC, QSPI, SPI, SPIM, SPIS, TWI, TWIM, TWIS, UART, UARTE.

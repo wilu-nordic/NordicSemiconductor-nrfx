@@ -201,7 +201,7 @@ typedef void (*nrfx_qspi_handler_t)(nrfx_qspi_evt_t event, void * p_context);
  *                      will be performed in blocking mode.
  * @param[in] p_context Pointer to context. Use in the interrupt handler.
  *
- * @warning On nRF5340, only the dedicated pins with @ref NRF_GPIO_PIN_MCUSEL_PERIPHERAL configuration
+ * @warning On nRF5340, only the dedicated pins with @ref NRF_GPIO_PIN_SEL_PERIPHERAL configuration
  *          are supported. See the chapter <a href=@nRF5340pinAssignmentsURL>Pin assignments</a>
  *          in the Product Specification.
  *
@@ -213,6 +213,17 @@ typedef void (*nrfx_qspi_handler_t)(nrfx_qspi_evt_t event, void * p_context);
 nrfx_err_t nrfx_qspi_init(nrfx_qspi_config_t const * p_config,
                           nrfx_qspi_handler_t        handler,
                           void *                     p_context);
+
+/**
+ * @brief Function for reconfiguring the QSPI driver instance.
+ *
+ * @param[in] p_config Pointer to the structure with the configuration.
+ *
+ * @retval NRFX_SUCCESS             Reconfiguration was successful.
+ * @retval NRFX_ERROR_BUSY          The driver is during transaction.
+ * @retval NRFX_ERROR_INVALID_STATE The driver is uninitialized.
+ */
+nrfx_err_t nrfx_qspi_reconfigure(nrfx_qspi_config_t const * p_config);
 
 /** @brief Function for uninitializing the QSPI driver instance. */
 void nrfx_qspi_uninit(void);
@@ -343,13 +354,6 @@ nrfx_err_t nrfx_qspi_mem_busy_check(void);
  * Pointers can be addresses from flash memory.
  * This function is a synchronous function and should be used only if necessary.
  *
- * @note Please note that the @ref NRFX_QSPI_DEFAULT_CINSTR macro provides default values
- *       for the @p io2_level and @p io3_level fields that cause the IO2 and IO3 lines
- *       to be kept low during the custom instruction transfer. Such configuration may not
- *       be suitable in certain circumstances and memory devices can interpret such levels
- *       of those lines as active WP# and HOLD#/RESET# signals, respectively. Hence, it is
- *       safer to use a configuration that will keep the lines high during the transfer.
- *
  * @param[in]  p_config    Pointer to the structure with opcode and transfer configuration.
  * @param[in]  p_tx_buffer Pointer to the array with data to send. Can be NULL if only opcode is transmitted.
  * @param[out] p_rx_buffer Pointer to the array for data to receive. Can be NULL if there is nothing to receive.
@@ -385,13 +389,6 @@ nrfx_err_t nrfx_qspi_cinstr_quick_send(uint8_t               opcode,
  * The long frame mode is a mechanism that allows for arbitrary byte length custom instructions.
  * Use this function to initiate a custom transaction by sending custom instruction opcode.
  * To send and receive data, use @ref nrfx_qspi_lfm_xfer.
- *
- * @note Please note that the @ref NRFX_QSPI_DEFAULT_CINSTR macro provides default values
- *       for the @p io2_level and @p io3_level fields that cause the IO2 and IO3 lines
- *       to be kept low during the custom instruction transfer. Such configuration may not
- *       be suitable in certain circumstances and memory devices can interpret such levels
- *       of those lines as active WP# and HOLD#/RESET# signals, respectively. Hence, it is
- *       safer to use a configuration that will keep the lines high during the transfer.
  *
  * @param[in] p_config Pointer to the structure with custom instruction opcode and transfer
  *                     configuration. Transfer length must be set to @ref NRF_QSPI_CINSTR_LEN_1B.

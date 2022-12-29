@@ -35,7 +35,7 @@
 #define NRFX_UARTE_H__
 
 #include <nrfx.h>
-#include <hal/nrf_uarte.h>
+#include <haly/nrfy_uarte.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -57,18 +57,7 @@ typedef struct
 
 #ifndef __NRFX_DOXYGEN__
 enum {
-#if NRFX_CHECK(NRFX_UARTE0_ENABLED)
-    NRFX_UARTE0_INST_IDX,
-#endif
-#if NRFX_CHECK(NRFX_UARTE1_ENABLED)
-    NRFX_UARTE1_INST_IDX,
-#endif
-#if NRFX_CHECK(NRFX_UARTE2_ENABLED)
-    NRFX_UARTE2_INST_IDX,
-#endif
-#if NRFX_CHECK(NRFX_UARTE3_ENABLED)
-    NRFX_UARTE3_INST_IDX,
-#endif
+    NRFX_INSTANCE_ENUM_LIST(UARTE)
     NRFX_UARTE_ENABLED_COUNT
 };
 #endif
@@ -91,28 +80,14 @@ typedef enum
 /** @brief Structure for the UARTE configuration. */
 typedef struct
 {
-    uint32_t             pseltxd;            ///< TXD pin number.
-    uint32_t             pselrxd;            ///< RXD pin number.
-    uint32_t             pselcts;            ///< CTS pin number.
-    uint32_t             pselrts;            ///< RTS pin number.
-    void *               p_context;          ///< Context passed to interrupt handler.
-    nrf_uarte_baudrate_t baudrate;           ///< Baud rate.
-    uint8_t              interrupt_priority; ///< Interrupt priority.
-    nrf_uarte_config_t   hal_cfg;            ///< Parity, flow control and stop bits settings.
-    bool                 skip_gpio_cfg;      ///< Skip GPIO configuration of pins.
-                                             /**< When set to true, the driver does not modify
-                                              *   any GPIO parameters of the used pins. Those
-                                              *   parameters are supposed to be configured
-                                              *   externally before the driver is initialized. */
-    bool                 skip_psel_cfg;      ///< Skip pin selection configuration.
-                                             /**< When set to true, the driver does not modify
-                                              *   pin select registers in the peripheral.
-                                              *   Those registers are supposed to be set up
-                                              *   externally before the driver is initialized.
-                                              *   @note When both GPIO configuration and pin
-                                              *   selection are to be skipped, the structure
-                                              *   fields that specify pins can be omitted,
-                                              *   as they are ignored anyway. */
+    nrfy_uarte_config_t nrfy_config;        ///< UARTE configuration.
+    void *              p_context;          ///< Context passed to interrupt handler.
+    uint8_t             interrupt_priority; ///< Interrupt priority.
+    bool                skip_gpio_cfg;      ///< Skip GPIO configuration of pins.
+                                            /**< When set to true, the driver does not modify
+                                             *   any GPIO parameters of the used pins. Those
+                                             *   parameters are supposed to be configured
+                                             *   externally before the driver is initialized. */
 } nrfx_uarte_config_t;
 
 #if defined(UARTE_CONFIG_STOP_Msk) || defined(__NRFX_DOXYGEN__)
@@ -143,21 +118,28 @@ typedef struct
  * @param[in] _pin_tx TX pin.
  * @param[in] _pin_rx RX pin.
  */
-#define NRFX_UARTE_DEFAULT_CONFIG(_pin_tx, _pin_rx)                                 \
-{                                                                                   \
-    .pseltxd            = _pin_tx,                                                  \
-    .pselrxd            = _pin_rx,                                                  \
-    .pselcts            = NRF_UARTE_PSEL_DISCONNECTED,                              \
-    .pselrts            = NRF_UARTE_PSEL_DISCONNECTED,                              \
-    .p_context          = NULL,                                                     \
-    .baudrate           = NRF_UARTE_BAUDRATE_115200,                                \
-    .interrupt_priority = NRFX_UARTE_DEFAULT_CONFIG_IRQ_PRIORITY,                   \
-    .hal_cfg            = {                                                         \
-        .hwfc           = NRF_UARTE_HWFC_DISABLED,                                  \
-        .parity         = NRF_UARTE_PARITY_EXCLUDED,                                \
-        NRFX_UARTE_DEFAULT_EXTENDED_STOP_CONFIG                                     \
-        NRFX_UARTE_DEFAULT_EXTENDED_PARITYTYPE_CONFIG                               \
-    }                                                                               \
+#define NRFX_UARTE_DEFAULT_CONFIG(_pin_tx, _pin_rx)              \
+{                                                                \
+    .nrfy_config        =                                        \
+    {                                                            \
+        .pins           =                                        \
+        {                                                        \
+            .txd_pin    = _pin_tx,                               \
+            .rxd_pin    = _pin_rx,                               \
+            .rts_pin    = NRF_UARTE_PSEL_DISCONNECTED,           \
+            .cts_pin    = NRF_UARTE_PSEL_DISCONNECTED            \
+        },                                                       \
+        .baudrate       = NRF_UARTE_BAUDRATE_115200,             \
+        .config         =                                        \
+        {                                                        \
+            .hwfc       = NRF_UARTE_HWFC_DISABLED,               \
+            .parity     = NRF_UARTE_PARITY_EXCLUDED,             \
+            NRFX_UARTE_DEFAULT_EXTENDED_STOP_CONFIG              \
+            NRFX_UARTE_DEFAULT_EXTENDED_PARITYTYPE_CONFIG        \
+        }                                                        \
+    },                                                           \
+    .p_context          = NULL,                                  \
+    .interrupt_priority = NRFX_UARTE_DEFAULT_CONFIG_IRQ_PRIORITY \
 }
 
 /** @brief Structure for the UARTE transfer completion event. */
@@ -215,6 +197,19 @@ typedef void (*nrfx_uarte_event_handler_t)(nrfx_uarte_event_t const * p_event,
 nrfx_err_t nrfx_uarte_init(nrfx_uarte_t const *        p_instance,
                            nrfx_uarte_config_t const * p_config,
                            nrfx_uarte_event_handler_t  event_handler);
+
+/**
+ * @brief Function for reconfiguring the UARTE driver.
+ *
+ * @param[in] p_instance Pointer to the driver instance structure.
+ * @param[in] p_config   Pointer to the structure with the configuration.
+ *
+ * @retval NRFX_SUCCESS             Reconfiguration was successful.
+ * @retval NRFX_ERROR_BUSY          The driver is during transfer.
+ * @retval NRFX_ERROR_INVALID_STATE The driver is uninitialized.
+ */
+nrfx_err_t nrfx_uarte_reconfigure(nrfx_uarte_t const *        p_instance,
+                                  nrfx_uarte_config_t const * p_config);
 
 /**
  * @brief Function for uninitializing the UARTE driver.
@@ -389,33 +384,20 @@ uint32_t nrfx_uarte_errorsrc_get(nrfx_uarte_t const * p_instance);
 NRFX_STATIC_INLINE uint32_t nrfx_uarte_task_address_get(nrfx_uarte_t const * p_instance,
                                                         nrf_uarte_task_t     task)
 {
-    return nrf_uarte_task_address_get(p_instance->p_reg, task);
+    return nrfy_uarte_task_address_get(p_instance->p_reg, task);
 }
 
 NRFX_STATIC_INLINE uint32_t nrfx_uarte_event_address_get(nrfx_uarte_t const * p_instance,
                                                          nrf_uarte_event_t    event)
 {
-    return nrf_uarte_event_address_get(p_instance->p_reg, event);
+    return nrfy_uarte_event_address_get(p_instance->p_reg, event);
 }
 #endif // NRFX_DECLARE_ONLY
 
-/**
- * @brief Macro returning UARTE interrupt handler.
- *
- * param[in] idx UARTE index.
- *
- * @return Interrupt handler.
- */
-#define NRFX_UARTE_INST_HANDLER_GET(idx) NRFX_CONCAT_3(nrfx_uarte_, idx, _irq_handler)
-
 /** @} */
 
-
-void nrfx_uarte_0_irq_handler(void);
-void nrfx_uarte_1_irq_handler(void);
-void nrfx_uarte_2_irq_handler(void);
-void nrfx_uarte_3_irq_handler(void);
-
+/* Declare interrupt handlers for enabled instances. */
+NRFX_INSTANCE_IRQ_HANDLERS_DECLARE(UARTE, uarte)
 
 #ifdef __cplusplus
 }

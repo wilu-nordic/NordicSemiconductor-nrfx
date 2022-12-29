@@ -47,15 +47,6 @@ extern "C" {
  * @brief   Hardware access layer for managing the TWIM peripheral.
  */
 
-/**
- * @brief Macro getting pointer to the structure of registers of the TWIM peripheral.
- *
- * @param[in] idx TWIM instance index.
- *
- * @return Pointer to the structure of registers of the TWIM peripheral.
- */
-#define NRF_TWIM_INST_GET(idx) NRFX_CONCAT_2(NRF_TWIM, idx)
-
 #if defined(TWIM_FREQUENCY_FREQUENCY_K1000) || defined(__NRFX_DOXYGEN__)
 /** @brief Symbol indicating whether 1000 kHz clock frequency is available. */
 #define NRF_TWIM_HAS_1000_KHZ_FREQ 1
@@ -63,26 +54,62 @@ extern "C" {
 #define NRF_TWIM_HAS_1000_KHZ_FREQ 0
 #endif
 
+#if defined(TWIM_TXD_LIST_LIST_ArrayList) || defined(__NRFX_DOXYGEN__)
+/**
+ * @brief Symbol indicating whether EasyDMA array list feature is present.
+ *
+ * @todo Add support for Haltium-specific bitmask once it is available
+ */
+#define NRF_TWIM_HAS_ARRAY_LIST 1
+#else
+#define NRF_TWIM_HAS_ARRAY_LIST 0
+#endif
+
+#if defined(TWIM_DMA_RX_PTR_PTR_Msk) || defined(__NRFX_DOXYGEN__)
+/** @brief Symbol indicating whether dedicated DMA register is present. */
+#define NRF_TWIM_HAS_DMA_REG 1
+#else
+#define NRF_TWIM_HAS_DMA_REG 0
+#endif
+
+#if (defined(TWIM_TASKS_DMA_RX_START_START_Msk) && defined(TWIM_EVENTS_DMA_RX_END_END_Msk)) || \
+    defined(__NRFX_DOXYGEN__)
+/** @brief Symbol indicating whether TWIM DMA tasks and events are present. */
+#define NRF_TWIM_HAS_DMA_TASKS_EVENTS 1
+#else
+#define NRF_TWIM_HAS_DMA_TASKS_EVENTS 0
+#endif
+
 /** @brief TWIM tasks. */
 typedef enum
 {
-    NRF_TWIM_TASK_STARTRX = offsetof(NRF_TWIM_Type, TASKS_STARTRX), ///< Start TWI receive sequence.
-    NRF_TWIM_TASK_STARTTX = offsetof(NRF_TWIM_Type, TASKS_STARTTX), ///< Start TWI transmit sequence.
-    NRF_TWIM_TASK_STOP    = offsetof(NRF_TWIM_Type, TASKS_STOP),    ///< Stop TWI transaction.
-    NRF_TWIM_TASK_SUSPEND = offsetof(NRF_TWIM_Type, TASKS_SUSPEND), ///< Suspend TWI transaction.
-    NRF_TWIM_TASK_RESUME  = offsetof(NRF_TWIM_Type, TASKS_RESUME)   ///< Resume TWI transaction.
+#if NRF_TWIM_HAS_DMA_TASKS_EVENTS
+    NRF_TWIM_TASK_STARTRX = offsetof(NRF_TWIM_Type, TASKS_DMA.RX.START), ///< Start TWI receive sequence.
+    NRF_TWIM_TASK_STARTTX = offsetof(NRF_TWIM_Type, TASKS_DMA.TX.START), ///< Start TWI transmit sequence.
+#else
+    NRF_TWIM_TASK_STARTRX = offsetof(NRF_TWIM_Type, TASKS_STARTRX),      ///< Start TWI receive sequence.
+    NRF_TWIM_TASK_STARTTX = offsetof(NRF_TWIM_Type, TASKS_STARTTX),      ///< Start TWI transmit sequence.
+#endif
+    NRF_TWIM_TASK_STOP    = offsetof(NRF_TWIM_Type, TASKS_STOP),         ///< Stop TWI transaction.
+    NRF_TWIM_TASK_SUSPEND = offsetof(NRF_TWIM_Type, TASKS_SUSPEND),      ///< Suspend TWI transaction.
+    NRF_TWIM_TASK_RESUME  = offsetof(NRF_TWIM_Type, TASKS_RESUME)        ///< Resume TWI transaction.
 } nrf_twim_task_t;
 
 /** @brief TWIM events. */
 typedef enum
 {
-    NRF_TWIM_EVENT_STOPPED   = offsetof(NRF_TWIM_Type, EVENTS_STOPPED),   ///< TWI stopped.
-    NRF_TWIM_EVENT_ERROR     = offsetof(NRF_TWIM_Type, EVENTS_ERROR),     ///< TWI error.
-    NRF_TWIM_EVENT_SUSPENDED = offsetof(NRF_TWIM_Type, EVENTS_SUSPENDED), ///< TWI suspended.
-    NRF_TWIM_EVENT_RXSTARTED = offsetof(NRF_TWIM_Type, EVENTS_RXSTARTED), ///< Receive sequence started.
-    NRF_TWIM_EVENT_TXSTARTED = offsetof(NRF_TWIM_Type, EVENTS_TXSTARTED), ///< Transmit sequence started.
-    NRF_TWIM_EVENT_LASTRX    = offsetof(NRF_TWIM_Type, EVENTS_LASTRX),    ///< Byte boundary, starting to receive the last byte.
-    NRF_TWIM_EVENT_LASTTX    = offsetof(NRF_TWIM_Type, EVENTS_LASTTX)     ///< Byte boundary, starting to transmit the last byte.
+    NRF_TWIM_EVENT_STOPPED   = offsetof(NRF_TWIM_Type, EVENTS_STOPPED),      ///< TWI stopped.
+    NRF_TWIM_EVENT_ERROR     = offsetof(NRF_TWIM_Type, EVENTS_ERROR),        ///< TWI error.
+    NRF_TWIM_EVENT_SUSPENDED = offsetof(NRF_TWIM_Type, EVENTS_SUSPENDED),    ///< TWI suspended.
+#if NRF_TWIM_HAS_DMA_TASKS_EVENTS
+    NRF_TWIM_EVENT_RXSTARTED = offsetof(NRF_TWIM_Type, EVENTS_DMA.RX.READY), ///< Receive sequence started.
+    NRF_TWIM_EVENT_TXSTARTED = offsetof(NRF_TWIM_Type, EVENTS_DMA.TX.READY), ///< Transmit sequence started.
+#else
+    NRF_TWIM_EVENT_RXSTARTED = offsetof(NRF_TWIM_Type, EVENTS_RXSTARTED),    ///< Receive sequence started.
+    NRF_TWIM_EVENT_TXSTARTED = offsetof(NRF_TWIM_Type, EVENTS_TXSTARTED),    ///< Transmit sequence started.
+#endif
+    NRF_TWIM_EVENT_LASTRX    = offsetof(NRF_TWIM_Type, EVENTS_LASTRX),       ///< Byte boundary, starting to receive the last byte.
+    NRF_TWIM_EVENT_LASTTX    = offsetof(NRF_TWIM_Type, EVENTS_LASTTX)        ///< Byte boundary, starting to transmit the last byte.
 } nrf_twim_event_t;
 
 /** @brief TWIM shortcuts. */
@@ -103,20 +130,25 @@ typedef enum
 /** @brief TWIM interrupts. */
 typedef enum
 {
-    NRF_TWIM_INT_STOPPED_MASK   = TWIM_INTENSET_STOPPED_Msk,   ///< Interrupt on STOPPED event.
-    NRF_TWIM_INT_ERROR_MASK     = TWIM_INTENSET_ERROR_Msk,     ///< Interrupt on ERROR event.
-    NRF_TWIM_INT_SUSPENDED_MASK = TWIM_INTENSET_SUSPENDED_Msk, ///< Interrupt on SUSPENDED event.
-    NRF_TWIM_INT_RXSTARTED_MASK = TWIM_INTENSET_RXSTARTED_Msk, ///< Interrupt on RXSTARTED event.
-    NRF_TWIM_INT_TXSTARTED_MASK = TWIM_INTENSET_TXSTARTED_Msk, ///< Interrupt on TXSTARTED event.
-    NRF_TWIM_INT_LASTRX_MASK    = TWIM_INTENSET_LASTRX_Msk,    ///< Interrupt on LASTRX event.
-    NRF_TWIM_INT_LASTTX_MASK    = TWIM_INTENSET_LASTTX_Msk,    ///< Interrupt on LASTTX event.
-    NRF_TWIM_ALL_INTS_MASK      = TWIM_INTENSET_STOPPED_Msk   |
-                                  TWIM_INTENSET_ERROR_Msk     |
-                                  TWIM_INTENSET_SUSPENDED_Msk |
-                                  TWIM_INTENSET_RXSTARTED_Msk |
-                                  TWIM_INTENSET_TXSTARTED_Msk |
-                                  TWIM_INTENSET_LASTRX_Msk    |
-                                  TWIM_INTENSET_LASTTX_Msk     ///< All TWIM interrupts.
+    NRF_TWIM_INT_STOPPED_MASK   = TWIM_INTENSET_STOPPED_Msk,    ///< Interrupt on STOPPED event.
+    NRF_TWIM_INT_ERROR_MASK     = TWIM_INTENSET_ERROR_Msk,      ///< Interrupt on ERROR event.
+    NRF_TWIM_INT_SUSPENDED_MASK = TWIM_INTENSET_SUSPENDED_Msk,  ///< Interrupt on SUSPENDED event.
+#if NRF_TWIM_HAS_DMA_TASKS_EVENTS
+    NRF_TWIM_INT_RXSTARTED_MASK = TWIM_INTENSET_DMARXREADY_Msk, ///< Interrupt on RXSTARTED event.
+    NRF_TWIM_INT_TXSTARTED_MASK = TWIM_INTENSET_DMATXREADY_Msk, ///< Interrupt on TXSTARTED event.
+#else
+    NRF_TWIM_INT_RXSTARTED_MASK = TWIM_INTENSET_RXSTARTED_Msk,  ///< Interrupt on RXSTARTED event.
+    NRF_TWIM_INT_TXSTARTED_MASK = TWIM_INTENSET_TXSTARTED_Msk,  ///< Interrupt on TXSTARTED event.
+#endif
+    NRF_TWIM_INT_LASTRX_MASK    = TWIM_INTENSET_LASTRX_Msk,     ///< Interrupt on LASTRX event.
+    NRF_TWIM_INT_LASTTX_MASK    = TWIM_INTENSET_LASTTX_Msk,     ///< Interrupt on LASTTX event.
+    NRF_TWIM_ALL_INTS_MASK      = NRF_TWIM_INT_STOPPED_MASK   |
+                                  NRF_TWIM_INT_ERROR_MASK     |
+                                  NRF_TWIM_INT_SUSPENDED_MASK |
+                                  NRF_TWIM_INT_RXSTARTED_MASK |
+                                  NRF_TWIM_INT_TXSTARTED_MASK |
+                                  NRF_TWIM_INT_LASTRX_MASK    |
+                                  NRF_TWIM_INT_LASTTX_MASK      ///< All TWIM interrupts.
 } nrf_twim_int_mask_t;
 
 /** @brief TWIM master clock frequency. */
@@ -415,6 +447,7 @@ NRF_STATIC_INLINE size_t nrf_twim_txd_amount_get(NRF_TWIM_Type const * p_reg);
  */
 NRF_STATIC_INLINE size_t nrf_twim_rxd_amount_get(NRF_TWIM_Type const * p_reg);
 
+#if NRF_TWIM_HAS_ARRAY_LIST
 /**
  * @brief Function for enabling the TX list feature.
  *
@@ -442,7 +475,7 @@ NRF_STATIC_INLINE void nrf_twim_rx_list_enable(NRF_TWIM_Type * p_reg);
  * @param[in] p_reg Pointer to the structure of registers of the peripheral.
  */
 NRF_STATIC_INLINE void nrf_twim_rx_list_disable(NRF_TWIM_Type * p_reg);
-
+#endif
 
 #ifndef NRF_DECLARE_ONLY
 
@@ -512,7 +545,7 @@ NRF_STATIC_INLINE void nrf_twim_subscribe_set(NRF_TWIM_Type * p_reg,
                                               uint8_t        channel)
 {
     *((volatile uint32_t *) ((uint8_t *) p_reg + (uint32_t) task + 0x80uL)) =
-            ((uint32_t)channel | TWIM_SUBSCRIBE_STARTRX_EN_Msk);
+            ((uint32_t)channel | NRF_SUBSCRIBE_PUBLISH_ENABLE);
 }
 
 NRF_STATIC_INLINE void nrf_twim_subscribe_clear(NRF_TWIM_Type * p_reg,
@@ -526,7 +559,7 @@ NRF_STATIC_INLINE void nrf_twim_publish_set(NRF_TWIM_Type *  p_reg,
                                             uint8_t         channel)
 {
     *((volatile uint32_t *) ((uint8_t *) p_reg + (uint32_t) event + 0x80uL)) =
-            ((uint32_t)channel | TWIM_PUBLISH_STOPPED_EN_Msk);
+            ((uint32_t)channel | NRF_SUBSCRIBE_PUBLISH_ENABLE);
 }
 
 NRF_STATIC_INLINE void nrf_twim_publish_clear(NRF_TWIM_Type *  p_reg,
@@ -590,16 +623,26 @@ NRF_STATIC_INLINE void nrf_twim_tx_buffer_set(NRF_TWIM_Type * p_reg,
                                               uint8_t const * p_buffer,
                                               size_t          length)
 {
+#if NRF_TWIM_HAS_DMA_REG
+    p_reg->DMA.TX.PTR    = (uint32_t)p_buffer;
+    p_reg->DMA.TX.MAXCNT = length;
+#else
     p_reg->TXD.PTR    = (uint32_t)p_buffer;
     p_reg->TXD.MAXCNT = length;
+#endif
 }
 
 NRF_STATIC_INLINE void nrf_twim_rx_buffer_set(NRF_TWIM_Type * p_reg,
                                               uint8_t * p_buffer,
                                               size_t    length)
 {
+#if NRF_TWIM_HAS_DMA_REG
+    p_reg->DMA.RX.PTR    = (uint32_t)p_buffer;
+    p_reg->DMA.RX.MAXCNT = length;
+#else
     p_reg->RXD.PTR    = (uint32_t)p_buffer;
     p_reg->RXD.MAXCNT = length;
+#endif
 }
 
 NRF_STATIC_INLINE void nrf_twim_shorts_set(NRF_TWIM_Type * p_reg,
@@ -615,14 +658,23 @@ NRF_STATIC_INLINE uint32_t nrf_twim_shorts_get(NRF_TWIM_Type const * p_reg)
 
 NRF_STATIC_INLINE size_t nrf_twim_txd_amount_get(NRF_TWIM_Type const * p_reg)
 {
+#if NRF_TWIM_HAS_DMA_REG
+    return p_reg->DMA.TX.AMOUNT;
+#else
     return p_reg->TXD.AMOUNT;
+#endif
 }
 
 NRF_STATIC_INLINE size_t nrf_twim_rxd_amount_get(NRF_TWIM_Type const * p_reg)
 {
+#if NRF_TWIM_HAS_DMA_REG
+    return p_reg->DMA.RX.AMOUNT;
+#else
     return p_reg->RXD.AMOUNT;
+#endif
 }
 
+#if NRF_TWIM_HAS_ARRAY_LIST
 NRF_STATIC_INLINE void nrf_twim_tx_list_enable(NRF_TWIM_Type * p_reg)
 {
     p_reg->TXD.LIST = TWIM_TXD_LIST_LIST_ArrayList << TWIM_TXD_LIST_LIST_Pos;
@@ -642,6 +694,8 @@ NRF_STATIC_INLINE void nrf_twim_rx_list_disable(NRF_TWIM_Type * p_reg)
 {
     p_reg->RXD.LIST = TWIM_RXD_LIST_LIST_Disabled << TWIM_RXD_LIST_LIST_Pos;
 }
+#endif
+
 #endif // NRF_DECLARE_ONLY
 
 /** @} */

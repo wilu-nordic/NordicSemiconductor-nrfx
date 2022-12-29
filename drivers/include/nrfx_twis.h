@@ -58,18 +58,7 @@ typedef struct
 
 #ifndef __NRFX_DOXYGEN__
 enum {
-#if NRFX_CHECK(NRFX_TWIS0_ENABLED)
-    NRFX_TWIS0_INST_IDX,
-#endif
-#if NRFX_CHECK(NRFX_TWIS1_ENABLED)
-    NRFX_TWIS1_INST_IDX,
-#endif
-#if NRFX_CHECK(NRFX_TWIS2_ENABLED)
-    NRFX_TWIS2_INST_IDX,
-#endif
-#if NRFX_CHECK(NRFX_TWIS3_ENABLED)
-    NRFX_TWIS3_INST_IDX,
-#endif
+    NRFX_INSTANCE_ENUM_LIST(TWIS)
     NRFX_TWIS_ENABLED_COUNT
 };
 #endif
@@ -206,6 +195,19 @@ typedef struct
 nrfx_err_t nrfx_twis_init(nrfx_twis_t const *        p_instance,
                           nrfx_twis_config_t const * p_config,
                           nrfx_twis_event_handler_t  event_handler);
+
+/**
+ * @brief Function for reconfiguring the TWIS driver instance.
+ *
+ * @param[in] p_instance Pointer to the driver instance structure.
+ * @param[in] p_config   Pointer to the structure with the configuration.
+ *
+ * @retval NRFX_SUCCESS             Reconfiguration was successful.
+ * @retval NRFX_ERROR_BUSY          The driver is during transaction.
+ * @retval NRFX_ERROR_INVALID_STATE The driver is uninitialized.
+ */
+nrfx_err_t nrfx_twis_reconfigure(nrfx_twis_t const *        p_instance,
+                                 nrfx_twis_config_t const * p_config);
 
 /**
  * @brief Function for uninitializing the TWIS driver instance.
@@ -404,22 +406,10 @@ NRFX_STATIC_INLINE size_t nrfx_twis_rx_amount(nrfx_twis_t const * p_instance)
 }
 #endif // NRFX_DECLARE_ONLY
 
-/**
- * @brief Macro returning TWIS interrupt handler.
- *
- * param[in] idx TWIS index.
- *
- * @return Interrupt handler.
- */
-#define NRFX_TWIS_INST_HANDLER_GET(idx) NRFX_CONCAT_3(nrfx_twis_, idx, _irq_handler)
-
 /** @} */
 
-
-void nrfx_twis_0_irq_handler(void);
-void nrfx_twis_1_irq_handler(void);
-void nrfx_twis_2_irq_handler(void);
-void nrfx_twis_3_irq_handler(void);
+/* Declare interrupt handlers for enabled instances. */
+NRFX_INSTANCE_IRQ_HANDLERS_DECLARE(TWIS, twis)
 
 
 #ifdef __cplusplus

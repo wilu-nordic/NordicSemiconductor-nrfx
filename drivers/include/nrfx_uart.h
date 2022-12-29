@@ -57,9 +57,7 @@ typedef struct
 
 #ifndef __NRFX_DOXYGEN__
 enum {
-#if NRFX_CHECK(NRFX_UART0_ENABLED)
-    NRFX_UART0_INST_IDX,
-#endif
+    NRFX_INSTANCE_ENUM_LIST(UART)
     NRFX_UART_ENABLED_COUNT
 };
 #endif
@@ -206,6 +204,19 @@ typedef void (*nrfx_uart_event_handler_t)(nrfx_uart_event_t const * p_event,
 nrfx_err_t nrfx_uart_init(nrfx_uart_t const *        p_instance,
                           nrfx_uart_config_t const * p_config,
                           nrfx_uart_event_handler_t  event_handler);
+
+/**
+ * @brief Function for reconfiguring the UART driver.
+ *
+ * @param[in] p_instance Pointer to the driver instance structure.
+ * @param[in] p_config   Pointer to the structure with the configuration.
+ *
+ * @retval NRFX_SUCCESS             Reconfiguration was successful.
+ * @retval NRFX_ERROR_BUSY          The driver is during transfer.
+ * @retval NRFX_ERROR_INVALID_STATE The driver is uninitialized.
+ */
+nrfx_err_t nrfx_uart_reconfigure(nrfx_uart_t const *        p_instance,
+                                 nrfx_uart_config_t const * p_config);
 
 /**
  * @brief Function for uninitializing the UART driver.
@@ -384,20 +395,10 @@ NRFX_STATIC_INLINE uint32_t nrfx_uart_event_address_get(nrfx_uart_t const * p_in
 }
 #endif // NRFX_DECLARE_ONLY
 
-/**
- * @brief Macro returning UART interrupt handler.
- *
- * param[in] idx UART index.
- *
- * @return Interrupt handler.
- */
-#define NRFX_UART_INST_HANDLER_GET(idx) NRFX_CONCAT_3(nrfx_uart_, idx, _irq_handler)
-
 /** @} */
 
-
-void nrfx_uart_0_irq_handler(void);
-
+/* Declare interrupt handlers for enabled instances. */
+NRFX_INSTANCE_IRQ_HANDLERS_DECLARE(UART, uart)
 
 #ifdef __cplusplus
 }

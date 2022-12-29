@@ -35,10 +35,7 @@
 
 #if NRFX_CHECK(NRFX_SPIS_ENABLED)
 
-#if !(NRFX_CHECK(NRFX_SPIS0_ENABLED) || \
-      NRFX_CHECK(NRFX_SPIS1_ENABLED) || \
-      NRFX_CHECK(NRFX_SPIS2_ENABLED) || \
-      NRFX_CHECK(NRFX_SPIS3_ENABLED))
+#if !NRFX_FEATURE_PRESENT(NRFX_SPIS, _ENABLED)
 #error "No enabled SPIS instances. Check <nrfx_config.h>."
 #endif
 
@@ -53,40 +50,12 @@
     (event == NRF_SPIS_EVENT_END      ? "NRF_SPIS_EVENT_END"      : \
                                         "UNKNOWN ERROR"))
 
-#define SPISX_LENGTH_VALIDATE(peripheral, drv_inst_idx, rx_len, tx_len) \
-    (((drv_inst_idx) == NRFX_CONCAT_3(NRFX_, peripheral, _INST_IDX)) && \
-     NRFX_EASYDMA_LENGTH_VALIDATE(peripheral, rx_len, tx_len))
+#define SPISX_LENGTH_VALIDATE(periph_name, prefix, i, drv_inst_idx, rx_len, tx_len) \
+    (((drv_inst_idx) == NRFX_CONCAT(NRFX_, periph_name, prefix, i, _INST_IDX)) && \
+     NRFX_EASYDMA_LENGTH_VALIDATE(NRFX_CONCAT(periph_name, prefix, i), rx_len, tx_len))
 
-#if NRFX_CHECK(NRFX_SPIS0_ENABLED)
-#define SPIS0_LENGTH_VALIDATE(...)  SPISX_LENGTH_VALIDATE(SPIS0, __VA_ARGS__)
-#else
-#define SPIS0_LENGTH_VALIDATE(...)  0
-#endif
-
-#if NRFX_CHECK(NRFX_SPIS1_ENABLED)
-#define SPIS1_LENGTH_VALIDATE(...)  SPISX_LENGTH_VALIDATE(SPIS1, __VA_ARGS__)
-#else
-#define SPIS1_LENGTH_VALIDATE(...)  0
-#endif
-
-#if NRFX_CHECK(NRFX_SPIS2_ENABLED)
-#define SPIS2_LENGTH_VALIDATE(...)  SPISX_LENGTH_VALIDATE(SPIS2, __VA_ARGS__)
-#else
-#define SPIS2_LENGTH_VALIDATE(...)  0
-#endif
-
-#if NRFX_CHECK(NRFX_SPIS3_ENABLED)
-#define SPIS3_LENGTH_VALIDATE(...)  SPISX_LENGTH_VALIDATE(SPIS3, __VA_ARGS__)
-#else
-#define SPIS3_LENGTH_VALIDATE(...)  0
-#endif
-
-#define SPIS_LENGTH_VALIDATE(drv_inst_idx, rx_len, tx_len)  \
-    (SPIS0_LENGTH_VALIDATE(drv_inst_idx, rx_len, tx_len) || \
-     SPIS1_LENGTH_VALIDATE(drv_inst_idx, rx_len, tx_len) || \
-     SPIS2_LENGTH_VALIDATE(drv_inst_idx, rx_len, tx_len) || \
-     SPIS3_LENGTH_VALIDATE(drv_inst_idx, rx_len, tx_len))
-
+#define SPIS_LENGTH_VALIDATE(drv_inst_idx, rx_len, tx_len)    \
+        (NRFX_FOREACH_ENABLED(SPIS, SPISX_LENGTH_VALIDATE, (||), (0), drv_inst_idx, rx_len, tx_len))
 
 #if NRFX_CHECK(NRFX_SPIS_NRF52_ANOMALY_109_WORKAROUND_ENABLED)
 #include <nrfx_gpiote.h>
@@ -101,7 +70,7 @@ static void csn_event_handler(nrfx_gpiote_pin_t     pin,
 #endif
 
 
-/** @brief States of the SPI transaction state machine. */
+/**@brief States of the SPI transaction state machine. */
 typedef enum
 {
     SPIS_STATE_INIT,                                 /**< Initialization state. In this state the module waits for a call to @ref spi_slave_buffers_set. */
@@ -110,7 +79,7 @@ typedef enum
     SPIS_XFER_COMPLETED                              /**< State where SPI transaction has been completed. */
 } nrfx_spis_state_t;
 
-/** @brief SPIS control block - driver instance local data. */
+/**@brief SPIS control block - driver instance local data. */
 typedef struct
 {
     volatile uint32_t          tx_buffer_size;  //!< SPI slave TX buffer size in bytes.
@@ -126,8 +95,7 @@ typedef struct
 
 static spis_cb_t m_cb[NRFX_SPIS_ENABLED_COUNT];
 
-static void configure_pins(NRF_SPIS_Type *            p_spis,
-                           nrfx_spis_config_t const * p_config)
+static void pins_configure(nrfx_spis_config_t const * p_config)
 {
     if (!p_config->skip_gpio_cfg)
     {
@@ -137,6 +105,9 @@ static void configure_pins(NRF_SPIS_Type *            p_spis,
                      NRF_GPIO_PIN_NOPULL,
                      NRF_GPIO_PIN_S0S1,
                      NRF_GPIO_PIN_NOSENSE);
+#if NRF_GPIO_HAS_CLOCKPIN
+        nrfy_gpio_pin_clock_set(p_config->sck_pin, true);
+#endif
 
         if (p_config->mosi_pin != NRFX_SPIS_PIN_NOT_USED)
         {
@@ -159,28 +130,78 @@ static void configure_pins(NRF_SPIS_Type *            p_spis,
         }
 
         nrf_gpio_cfg(p_config->csn_pin,
-                     NRF_GPIO_PIN_DIR_INPUT,
-                     NRF_GPIO_PIN_INPUT_CONNECT,
-                     p_config->csn_pullup,
-                     NRF_GPIO_PIN_S0S1,
-                     NRF_GPIO_PIN_NOSENSE);
+                    NRF_GPIO_PIN_DIR_INPUT,
+                    NRF_GPIO_PIN_INPUT_CONNECT,
+                    p_config->csn_pullup,
+                    NRF_GPIO_PIN_S0S1,
+                    NRF_GPIO_PIN_NOSENSE);
+
+#if defined(USE_DMA_ISSUE_WORKAROUND)
+        // Configure a GPIOTE channel to generate interrupts on each falling edge
+        // on the CSN line. Handling of these interrupts will make the CPU active,
+        // and thus will protect the DMA transfers started by SPIS right after it
+        // is selected for communication.
+        // [the GPIOTE driver may be already initialized at this point (by this
+        //  driver when another SPIS instance is used, or by an application code),
+        //  so just ignore the returned value]
+        (void)nrfx_gpiote_init(NRFX_GPIOTE_DEFAULT_CONFIG_IRQ_PRIORITY);
+        static nrfx_gpiote_in_config_t const csn_gpiote_config =
+            NRFX_GPIOTE_CONFIG_IN_SENSE_HITOLO(true);
+        nrfx_err_t gpiote_err_code = nrfx_gpiote_in_init(p_config->csn_pin,
+            &csn_gpiote_config, csn_event_handler);
+        if (gpiote_err_code != NRFX_SUCCESS)
+        {
+            err_code = NRFX_ERROR_INTERNAL;
+            NRFX_LOG_INFO("Function: %s, error code: %s.",
+                        __func__,
+                        NRFX_LOG_ERROR_STRING_GET(err_code));
+            return err_code;
+        }
+        nrfx_gpiote_in_event_enable(p_config->csn_pin, true);
+#endif
     }
+}
+
+static bool spis_configure(nrfx_spis_t const *        p_instance,
+                           nrfx_spis_config_t const * p_config)
+{
+    NRF_SPIS_Type * p_spis = p_instance->p_reg;
+    if (p_config->mode > NRF_SPIS_MODE_3)
+    {
+        return false;
+    }
+
+    pins_configure(p_config);
 
     if (!p_config->skip_psel_cfg)
     {
-        uint32_t mosi_pin = (p_config->mosi_pin != NRFX_SPIS_PIN_NOT_USED)
-                            ? p_config->mosi_pin
-                            : NRF_SPIS_PIN_NOT_CONNECTED;
-        uint32_t miso_pin = (p_config->miso_pin != NRFX_SPIS_PIN_NOT_USED)
-                            ? p_config->miso_pin
-                            : NRF_SPIS_PIN_NOT_CONNECTED;
+        uint32_t mosi_pin = p_config->mosi_pin != NRFX_SPIS_PIN_NOT_USED ?
+                            p_config->mosi_pin : NRF_SPIS_PIN_NOT_CONNECTED;
 
-        nrf_spis_pins_set(p_spis,
-                          p_config->sck_pin,
-                          mosi_pin,
-                          miso_pin,
-                          p_config->csn_pin);
+        uint32_t miso_pin = p_config->miso_pin != NRFX_SPIS_PIN_NOT_USED ?
+                            p_config->miso_pin : NRF_SPIS_PIN_NOT_CONNECTED;
+
+        nrf_spis_pins_set(p_spis, p_config->sck_pin, mosi_pin, miso_pin, p_config->csn_pin);
     }
+
+    // Configure SPI mode.
+    nrf_spis_configure(p_spis, p_config->mode, p_config->bit_order);
+
+    // Configure DEF and ORC characters.
+    nrf_spis_def_set(p_spis, p_config->def);
+    nrf_spis_orc_set(p_spis, p_config->orc);
+
+    // Clear possible pending events.
+    nrf_spis_event_clear(p_spis, NRF_SPIS_EVENT_END);
+    nrf_spis_event_clear(p_spis, NRF_SPIS_EVENT_ACQUIRED);
+
+    // Enable END_ACQUIRE shortcut.
+    nrf_spis_shorts_enable(p_spis, NRF_SPIS_SHORT_END_ACQUIRE);
+
+    NRFX_IRQ_PRIORITY_SET(nrfx_get_irq_number(p_instance->p_reg), p_config->irq_priority);
+    NRFX_IRQ_ENABLE(nrfx_get_irq_number(p_instance->p_reg));
+
+    return true;
 }
 
 nrfx_err_t nrfx_spis_init(nrfx_spis_t const *        p_instance,
@@ -204,28 +225,9 @@ nrfx_err_t nrfx_spis_init(nrfx_spis_t const *        p_instance,
         return err_code;
     }
 
-    if ((uint32_t)p_config->mode > (uint32_t)NRF_SPIS_MODE_3)
-    {
-        err_code = NRFX_ERROR_INVALID_PARAM;
-        NRFX_LOG_WARNING("Function: %s, error code: %s.",
-                         __func__,
-                         NRFX_LOG_ERROR_STRING_GET(err_code));
-        return err_code;
-    }
 #if NRFX_CHECK(NRFX_PRS_ENABLED)
     static nrfx_irq_handler_t const irq_handlers[NRFX_SPIS_ENABLED_COUNT] = {
-        #if NRFX_CHECK(NRFX_SPIS0_ENABLED)
-        nrfx_spis_0_irq_handler,
-        #endif
-        #if NRFX_CHECK(NRFX_SPIS1_ENABLED)
-        nrfx_spis_1_irq_handler,
-        #endif
-        #if NRFX_CHECK(NRFX_SPIS2_ENABLED)
-        nrfx_spis_2_irq_handler,
-        #endif
-        #if NRFX_CHECK(NRFX_SPIS3_ENABLED)
-        nrfx_spis_3_irq_handler,
-        #endif
+        NRFX_INSTANCE_IRQ_HANDLERS_LIST(SPIS, spis)
     };
     if (nrfx_prs_acquire(p_spis,
             irq_handlers[p_instance->drv_inst_idx]) != NRFX_SUCCESS)
@@ -238,61 +240,30 @@ nrfx_err_t nrfx_spis_init(nrfx_spis_t const *        p_instance,
     }
 #endif // NRFX_CHECK(NRFX_PRS_ENABLED)
 
-    p_cb->skip_gpio_cfg = p_config->skip_gpio_cfg;
+    p_cb->handler   = event_handler;
+    p_cb->p_context = p_context;
 
-    configure_pins(p_spis, p_config);
+    if (p_config)
+    {
+        p_cb->skip_gpio_cfg = p_config->skip_gpio_cfg;
+
+        if (!spis_configure(p_instance, p_config))
+        {
+            err_code = NRFX_ERROR_INVALID_PARAM;
+            NRFX_LOG_WARNING("Function: %s, error code: %s.",
+                            __func__,
+                            NRFX_LOG_ERROR_STRING_GET(err_code));
+            return err_code;
+        }
+    }
 
     nrf_spis_rx_buffer_set(p_spis, NULL, 0);
     nrf_spis_tx_buffer_set(p_spis, NULL, 0);
 
-    // Configure SPI mode.
-    nrf_spis_configure(p_spis, p_config->mode, p_config->bit_order);
-
-    // Configure DEF and ORC characters.
-    nrf_spis_def_set(p_spis, p_config->def);
-    nrf_spis_orc_set(p_spis, p_config->orc);
-
-    // Clear possible pending events.
-    nrf_spis_event_clear(p_spis, NRF_SPIS_EVENT_END);
-    nrf_spis_event_clear(p_spis, NRF_SPIS_EVENT_ACQUIRED);
-
-    // Enable END_ACQUIRE shortcut.
-    nrf_spis_shorts_enable(p_spis, NRF_SPIS_SHORT_END_ACQUIRE);
-
     p_cb->spi_state = SPIS_STATE_INIT;
-    p_cb->handler   = event_handler;
-    p_cb->p_context = p_context;
-
-#if defined(USE_DMA_ISSUE_WORKAROUND)
-    // Configure a GPIOTE channel to generate interrupts on each falling edge
-    // on the CSN line. Handling of these interrupts will make the CPU active,
-    // and thus will protect the DMA transfers started by SPIS right after it
-    // is selected for communication.
-    // [the GPIOTE driver may be already initialized at this point (by this
-    //  driver when another SPIS instance is used, or by an application code),
-    //  so just ignore the returned value]
-    (void)nrfx_gpiote_init(NRFX_GPIOTE_DEFAULT_CONFIG_IRQ_PRIORITY);
-    static nrfx_gpiote_in_config_t const csn_gpiote_config =
-        NRFX_GPIOTE_CONFIG_IN_SENSE_HITOLO(true);
-    nrfx_err_t gpiote_err_code = nrfx_gpiote_in_init(p_config->csn_pin,
-        &csn_gpiote_config, csn_event_handler);
-    if (gpiote_err_code != NRFX_SUCCESS)
-    {
-        err_code = NRFX_ERROR_INTERNAL;
-        NRFX_LOG_INFO("Function: %s, error code: %s.",
-                      __func__,
-                      NRFX_LOG_ERROR_STRING_GET(err_code));
-        return err_code;
-    }
-    nrfx_gpiote_in_event_enable(p_config->csn_pin, true);
-#endif
-
     // Enable IRQ.
     nrf_spis_int_enable(p_spis, NRF_SPIS_INT_ACQUIRED_MASK |
                                 NRF_SPIS_INT_END_MASK);
-    NRFX_IRQ_PRIORITY_SET(nrfx_get_irq_number(p_instance->p_reg),
-        p_config->irq_priority);
-    NRFX_IRQ_ENABLE(nrfx_get_irq_number(p_instance->p_reg));
 
     p_cb->state = NRFX_DRV_STATE_INITIALIZED;
 
@@ -303,6 +274,29 @@ nrfx_err_t nrfx_spis_init(nrfx_spis_t const *        p_instance,
     return NRFX_SUCCESS;
 }
 
+nrfx_err_t nrfx_spis_reconfigure(nrfx_spis_t const *        p_instance,
+                                 nrfx_spis_config_t const * p_config)
+{
+    NRFX_ASSERT(p_config);
+    nrfx_err_t err_code;
+    spis_cb_t * p_cb = &m_cb[p_instance->drv_inst_idx];
+
+    if (p_cb->state == NRFX_DRV_STATE_UNINITIALIZED)
+    {
+        return NRFX_ERROR_INVALID_STATE;
+    }
+    nrf_spis_disable(p_instance->p_reg);
+    if (spis_configure(p_instance, p_config))
+    {
+        err_code = NRFX_SUCCESS;
+    }
+    else
+    {
+        err_code = NRFX_ERROR_INVALID_PARAM;
+    }
+    nrf_spis_enable(p_instance->p_reg);
+    return err_code;
+}
 
 void nrfx_spis_uninit(nrfx_spis_t const * p_instance)
 {
@@ -344,7 +338,7 @@ void nrfx_spis_uninit(nrfx_spis_t const * p_instance)
 }
 
 
-/** @brief Function for executing the state entry action. */
+/**@brief Function for executing the state entry action. */
 static void spis_state_entry_action_execute(NRF_SPIS_Type * p_spis,
                                             spis_cb_t     * p_cb)
 {
@@ -383,7 +377,7 @@ static void spis_state_entry_action_execute(NRF_SPIS_Type * p_spis,
     }
 }
 
-/** @brief Function for changing the state of the SPI state machine.
+/**@brief Function for changing the state of the SPI state machine.
  *
  * @param[in] p_spis    SPIS instance register.
  * @param[in] p_cb      SPIS instance control block.
@@ -456,7 +450,7 @@ nrfx_err_t nrfx_spis_buffers_set(nrfx_spis_t const * p_instance,
     return err_code;
 }
 
-static void spis_irq_handler(NRF_SPIS_Type * p_spis, spis_cb_t * p_cb)
+static void irq_handler(NRF_SPIS_Type * p_spis, spis_cb_t * p_cb)
 {
     // @note: as multiple events can be pending for processing, the correct event processing order
     // is as follows:
@@ -505,32 +499,6 @@ static void spis_irq_handler(NRF_SPIS_Type * p_spis, spis_cb_t * p_cb)
     }
 }
 
-#if NRFX_CHECK(NRFX_SPIS0_ENABLED)
-void nrfx_spis_0_irq_handler(void)
-{
-    spis_irq_handler(NRF_SPIS0, &m_cb[NRFX_SPIS0_INST_IDX]);
-}
-#endif
-
-#if NRFX_CHECK(NRFX_SPIS1_ENABLED)
-void nrfx_spis_1_irq_handler(void)
-{
-    spis_irq_handler(NRF_SPIS1, &m_cb[NRFX_SPIS1_INST_IDX]);
-}
-#endif
-
-#if NRFX_CHECK(NRFX_SPIS2_ENABLED)
-void nrfx_spis_2_irq_handler(void)
-{
-    spis_irq_handler(NRF_SPIS2, &m_cb[NRFX_SPIS2_INST_IDX]);
-}
-#endif
-
-#if NRFX_CHECK(NRFX_SPIS3_ENABLED)
-void nrfx_spis_3_irq_handler(void)
-{
-    spis_irq_handler(NRF_SPIS3, &m_cb[NRFX_SPIS3_INST_IDX]);
-}
-#endif
+NRFX_INSTANCE_IRQ_HANDLERS(SPIS, spis)
 
 #endif // NRFX_CHECK(NRFX_SPIS_ENABLED)

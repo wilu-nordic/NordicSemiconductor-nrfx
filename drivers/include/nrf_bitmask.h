@@ -151,6 +151,23 @@ __STATIC_INLINE void nrf_bitmask_masks_and(void const * p_mask1,
     }
 }
 
+/**
+ * @brief Function for returning the number of trailing zeros in the specified 32-bit mask.
+ *
+ * @param[in] mask Mask with bit fields.
+ *
+ * @return Number of trailing zeros.
+ */
+__STATIC_INLINE uint32_t nrf_bitmask_trailing_zeros_get(uint32_t mask)
+{
+#if defined(__CORTEX_M) && (__CORTEX_M > 0U)
+    return __CLZ(__RBIT(mask));
+#else
+    /* CTZ for Cortex-M0/RISCV */
+    return __builtin_ctz(mask);
+#endif
+}
+
 /** @} */
 
 #ifdef __cplusplus

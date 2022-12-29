@@ -58,24 +58,7 @@ typedef struct
 
 #ifndef __NRFX_DOXYGEN__
 enum {
-#if NRFX_CHECK(NRFX_EGU0_ENABLED)
-    NRFX_EGU0_INST_IDX,
-#endif
-#if NRFX_CHECK(NRFX_EGU1_ENABLED)
-    NRFX_EGU1_INST_IDX,
-#endif
-#if NRFX_CHECK(NRFX_EGU2_ENABLED)
-    NRFX_EGU2_INST_IDX,
-#endif
-#if NRFX_CHECK(NRFX_EGU3_ENABLED)
-    NRFX_EGU3_INST_IDX,
-#endif
-#if NRFX_CHECK(NRFX_EGU4_ENABLED)
-    NRFX_EGU4_INST_IDX,
-#endif
-#if NRFX_CHECK(NRFX_EGU5_ENABLED)
-    NRFX_EGU5_INST_IDX,
-#endif
+    NRFX_INSTANCE_ENUM_LIST(EGU)
     NRFX_EGU_ENABLED_COUNT
 };
 #endif
@@ -143,23 +126,10 @@ void nrfx_egu_trigger(nrfx_egu_t const * p_instance, uint8_t event_idx);
  */
 void nrfx_egu_uninit(nrfx_egu_t const * p_instance);
 
-/**
- * @brief Macro returning EGU interrupt handler.
- *
- * param[in] idx EGU index.
- *
- * @return Interrupt handler.
- */
-#define NRFX_EGU_INST_HANDLER_GET(idx) NRFX_CONCAT_3(nrfx_egu_, idx, _irq_handler)
-
 /** @} */
 
-void nrfx_egu_0_irq_handler(void);
-void nrfx_egu_1_irq_handler(void);
-void nrfx_egu_2_irq_handler(void);
-void nrfx_egu_3_irq_handler(void);
-void nrfx_egu_4_irq_handler(void);
-void nrfx_egu_5_irq_handler(void);
+/* Declare interrupt handlers for enabled instances. */
+NRFX_INSTANCE_IRQ_HANDLERS_DECLARE(EGU, egu)
 
 #ifdef __cplusplus
 }

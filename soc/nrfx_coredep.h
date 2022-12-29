@@ -73,9 +73,31 @@
 #elif defined(NRF5340_XXAA_NETWORK)
     #define NRFX_DELAY_CPU_FREQ_MHZ 64
     #define NRFX_DELAY_DWT_PRESENT  1
-#else
-    #define NRFX_DELAY_CPU_FREQ_MHZ (SystemCoreClock / 1000000)
-    #define NRFX_DELAY_DWT_PRESENT  0
+#elif defined(HALTIUM_XXAA) || defined(LUMOS_XXAA)
+/* Development platform (e.g. FPGA) may have actual clock slower than the one
+ * declared for the platform. In certain cases it may be convinient to apply
+ * this divider to have time accurate delay, otherwise delay is slowed down.
+ *
+ * Currently FPGA divider is 8.
+ */
+#if !defined(CONFIG_NRFX_SYS_CLOCK_DIV)
+#define CONFIG_NRFX_SYS_CLOCK_DIV 1
+#endif
+    #if defined(BOARD_PALLADIUM)
+        #define NRFX_DELAY_CPU_FREQ_MHZ (SystemCoreClock / 1000000)
+        #define NRFX_DELAY_DWT_PRESENT  0
+    #elif defined(BOARD_FPGA)
+        #define NRFX_DELAY_CPU_FREQ_MHZ ((SystemCoreClock / 1000000) / CONFIG_NRFX_SYS_CLOCK_DIV)
+        #define NRFX_DELAY_DWT_PRESENT  1
+    #else
+        #define NRFX_DELAY_CPU_FREQ_MHZ (SystemCoreClock / 1000000)
+        #define NRFX_DELAY_DWT_PRESENT  0
+    #endif
+#endif
+
+#if ISA_RISCV
+/** @brief Slowdown for RISCV cores. */
+#define NRFX_DELAY_RISCV_SLOWDOWN 110
 #endif
 
 /**
@@ -138,6 +160,7 @@ NRF_STATIC_INLINE void nrfx_coredep_delay_us(uint32_t time_us)
         return;
     }
 
+#if ISA_ARM
     // Allow overriding the number of cycles per loop iteration, in case it is
     // needed to adjust this number externally (for example, when the SoC is
     // emulated).
@@ -170,6 +193,14 @@ NRF_STATIC_INLINE void nrfx_coredep_delay_us(uint32_t time_us)
         (delay_func_t)((((uint32_t)delay_machine_code) | 1));
     uint32_t cycles = time_us * NRFX_DELAY_CPU_FREQ_MHZ;
     delay_cycles(cycles);
+#elif ISA_RISCV
+    for (volatile uint32_t i = 0;
+         i < ((NRFX_DELAY_CPU_FREQ_MHZ * time_us) / NRFX_DELAY_RISCV_SLOWDOWN);
+         i++)
+    {
+        ;
+    }
+#endif
 }
 
 #endif // !NRFX_CHECK(NRFX_DELAY_DWT_BASED_DELAY)

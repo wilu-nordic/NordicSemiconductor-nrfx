@@ -35,7 +35,7 @@
 #define NRFX_LPCOMP_H__
 
 #include <nrfx.h>
-#include <hal/nrf_lpcomp.h>
+#include <haly/nrfy_lpcomp.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -57,9 +57,8 @@ typedef void (* nrfx_lpcomp_event_handler_t)(nrf_lpcomp_event_t event);
 /** @brief LPCOMP configuration. */
 typedef struct
 {
-    nrf_lpcomp_config_t hal;                /**< LPCOMP HAL configuration. */
-    nrf_lpcomp_input_t  input;              /**< Input to be monitored. */
-    uint8_t             interrupt_priority; /**< LPCOMP interrupt priority. */
+    nrfy_lpcomp_config_t nrfy_config;        /**< LPCOMP configuration. */
+    uint8_t              interrupt_priority; /**< LPCOMP interrupt priority. */
 } nrfx_lpcomp_config_t;
 
 /**
@@ -75,18 +74,30 @@ typedef struct
 #if defined(LPCOMP_FEATURE_HYST_PRESENT)
 #define NRFX_LPCOMP_DEFAULT_CONFIG(_input)                         \
 {                                                                  \
-    .hal    = {  NRF_LPCOMP_REF_SUPPLY_4_8,                        \
-                 NRF_LPCOMP_DETECT_CROSS,                          \
-                 NRF_LPCOMP_HYST_NOHYST },                         \
-    .input  = (nrf_lpcomp_input_t)_input,                          \
+    .nrfy_config =                                                 \
+    {                                                              \
+        .config =                                                  \
+        {                                                          \
+            NRF_LPCOMP_REF_SUPPLY_4_8,                             \
+            NRF_LPCOMP_DETECT_CROSS,                               \
+            NRF_LPCOMP_HYST_NOHYST                                 \
+        },                                                         \
+        .input = (nrf_lpcomp_input_t)_input,                       \
+    },                                                             \
     .interrupt_priority = NRFX_LPCOMP_DEFAULT_CONFIG_IRQ_PRIORITY  \
 }
 #else
 #define NRFX_LPCOMP_DEFAULT_CONFIG(_input)                         \
 {                                                                  \
-    .hal    = {  NRF_LPCOMP_REF_SUPPLY_4_8,                        \
-                 NRF_LPCOMP_DETECT_CROSS },                        \
-    .input  = (nrf_lpcomp_input_t)_input,                          \
+    .nrfy_config =                                                 \
+    {                                                              \
+        .config =                                                  \
+        {                                                          \
+            NRF_LPCOMP_REF_SUPPLY_4_8,                             \
+            NRF_LPCOMP_DETECT_CROSS,                               \
+        },                                                         \
+        .input = (nrf_lpcomp_input_t)_input,                       \
+    },                                                             \
     .interrupt_priority = NRFX_LPCOMP_DEFAULT_CONFIG_IRQ_PRIORITY  \
 }
 #endif

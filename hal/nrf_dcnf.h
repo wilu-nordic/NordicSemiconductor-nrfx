@@ -166,13 +166,21 @@ NRF_STATIC_INLINE void nrf_dcnf_ram_access_set(NRF_DCNF_Type * p_reg,
                                                uint8_t         port_idx,
                                                uint32_t        mask)
 {
+#if defined(NRF9160_XXAA)
+    p_reg->EXTRAM.PROTECT[port_idx] = mask;
+#else
     p_reg->EXTRAM[port_idx].PROTECT = mask;
+#endif
 }
 
 NRF_STATIC_INLINE uint32_t nrf_dcnf_ram_access_get(NRF_DCNF_Type const * p_reg,
                                                    uint8_t               port_idx)
 {
+#if defined(NRF9160_XXAA)
+    return p_reg->EXTRAM.PROTECT[port_idx];
+#else
     return p_reg->EXTRAM[port_idx].PROTECT;
+#endif
 }
 #endif
 

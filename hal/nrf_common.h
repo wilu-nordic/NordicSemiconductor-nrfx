@@ -42,8 +42,12 @@ extern "C" {
 #define NRFX_EVENT_READBACK_ENABLED 1
 #endif
 
-#if !defined(NRFX_CONFIG_API_VER_2_9) && !defined(NRFX_CONFIG_API_VER_2_10)
-#define NRFX_CONFIG_API_VER_2_9 1
+#if defined(ISA_RISCV)
+#define RISCV_FENCE(p, s) __asm__ __volatile__ ("fence " #p "," #s : : : "memory")
+#endif
+
+#ifndef NRF_SUBSCRIBE_PUBLISH_ENABLE
+#define NRF_SUBSCRIBE_PUBLISH_ENABLE (0x01UL << 31UL)
 #endif
 
 #if defined(NRFX_CLZ)
@@ -58,6 +62,25 @@ extern "C" {
 #define NRF_CTZ(value) __CLZ(__RBIT(value))
 #endif
 
+/**
+ * @brief Function for checking if an object is accesible by EasyDMA of given peripheral instance.
+ *
+ * Peripherals that use EasyDMA require buffers to be placed in certain memory regions.
+ *
+ * @param[in] p_reg    Peripheral base pointer.
+ * @param[in] p_object Pointer to an object whose location is to be checked.
+ *
+ * @retval true  The pointed object is located in the memory region accessible by EasyDMA.
+ * @retval false The pointed object is not located in the memory region accessible by EasyDMA.
+ */
+NRF_STATIC_INLINE bool nrf_dma_accesible_check(void const * p_reg, void const * p_object);
+
+NRF_STATIC_INLINE void nrf_barrier_w(void);
+
+NRF_STATIC_INLINE void nrf_barrier_r(void);
+
+NRF_STATIC_INLINE void nrf_barrier_rw(void);
+
 #ifndef NRF_DECLARE_ONLY
 
 NRF_STATIC_INLINE void nrf_event_readback(void * p_event_reg)
@@ -66,6 +89,93 @@ NRF_STATIC_INLINE void nrf_event_readback(void * p_event_reg)
     (void)*((volatile uint32_t *)(p_event_reg));
 #else
     (void)p_event_reg;
+#endif
+}
+
+NRF_STATIC_INLINE void nrf_barrier_w(void)
+{
+#if defined(ISA_RISCV)
+    RISCV_FENCE(ow, ow);
+#endif
+}
+
+NRF_STATIC_INLINE void nrf_barrier_r(void)
+{
+#if defined(ISA_RISCV)
+    RISCV_FENCE(ir, ir);
+#endif
+}
+
+NRF_STATIC_INLINE void nrf_barrier_rw(void)
+{
+#if defined(ISA_RISCV)
+    RISCV_FENCE(iorw, iorw);
+#endif
+}
+
+#if defined(HALTIUM_XXAA)
+NRF_STATIC_INLINE nrf_region_t nrf_address_region_get(uint32_t addr)
+{
+    return (nrf_region_t)((addr & ADDRESS_REGION_Msk) >> ADDRESS_REGION_Pos);
+}
+
+NRF_STATIC_INLINE bool nrf_address_security_get(uint32_t addr)
+{
+    return ((addr & ADDRESS_SECURITY_Msk) >> ADDRESS_SECURITY_Pos);
+}
+
+NRF_STATIC_INLINE uint8_t nrf_address_domain_get(uint32_t addr)
+{
+    return (uint8_t)((addr & ADDRESS_DOMAIN_Msk) >> ADDRESS_DOMAIN_Pos);
+}
+
+NRF_STATIC_INLINE uint8_t nrf_address_bus_get(uint32_t addr, size_t size)
+{
+    return (uint8_t)((addr & ADDRESS_BUS_Msk & ~(size - 1)) >> ADDRESS_BUS_Pos);
+}
+
+NRF_STATIC_INLINE uint8_t nrf_address_bridge_group_get(uint32_t addr)
+{
+    return (uint8_t)((addr & ADDRESS_BRIDGE_GROUP_Msk) >> ADDRESS_BRIDGE_GROUP_Pos);
+}
+
+NRF_STATIC_INLINE nrf_domain_speed_t nrf_address_domain_speed_get(uint32_t addr)
+{
+    return (nrf_domain_speed_t)((addr & ADDRESS_DOMAIN_SPEED_Msk) >> ADDRESS_DOMAIN_SPEED_Pos);
+}
+
+NRF_STATIC_INLINE uint8_t nrf_address_slave_get(uint32_t addr)
+{
+    return (uint8_t)((addr & ADDRESS_SLAVE_Msk) >> ADDRESS_SLAVE_Pos);
+}
+
+NRF_STATIC_INLINE uint16_t nrf_address_periphid_get(uint32_t addr)
+{
+    return (uint16_t)((addr & ADDRESS_PERIPHID_Msk) >> ADDRESS_PERIPHID_Pos);
+}
+#endif // defined(HALTIUM_XXAA)
+
+NRF_STATIC_INLINE bool nrf_dma_accesible_check(void const * p_reg, void const * p_object)
+{
+#if defined(HALTIUM_XXAA)
+    if (nrf_address_bus_get((uint32_t)p_reg, 0x10000) == 0x8E)
+    {
+        /* Bitwise operation to unify secure/non-secure memory address */
+        uint32_t addr = (uint32_t)p_object & 0xEFFFFFFFu;
+
+        /* When peripheral instance is high-speed check whether p_object is placed in GRAM2x or GRAM0x */
+        bool gram0x = (addr >= 0x2F000000u) && (addr < 0x2F038000);
+        bool gram2x = (addr >= 0x2F880000u) && (addr < 0x2F886200);
+        return gram0x || gram2x;
+    }
+    else
+    {
+        /* When peripheral instance is low-speed check whether p_object is placed in GRAM3x */
+        return ((((uint32_t)p_object) & 0xEFFF8000u) == 0x2FC00000u);
+    }
+#else
+    (void)p_reg;
+    return ((((uint32_t)p_object) & 0xE0000000u) == 0x20000000u);
 #endif
 }
 
